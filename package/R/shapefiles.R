@@ -46,10 +46,9 @@ my_ISO_3166 = inner_join(
   as.data.frame(my_ISO_3166_2,stringsAsFactors=FALSE),
   by=c("Alpha_2"="ISO_3166_1_Alpha_2"))
 
-data('WHO_regions',package='global-toolbox')
+data('WHO_regions',package='globaltoolbox')
 my_WHO_regions = apply(WHO_regions,2,toupper)
 
-#' @export get_shape_file
 #' @name get_shape_file
 #' @title get_shape_file
 #' @description Look up the GADM shapefile for a particular location
@@ -59,6 +58,7 @@ my_WHO_regions = apply(WHO_regions,2,toupper)
 #' @param method which method to use when pulling shapefiles.  If \code{method =='center'}, then use the central points listed in the shape files.  If \code{method=='name'} use the names.
 #' @return an sf::sf with the results
 #' @importFrom lubridate now
+#' @export
 get_shape_file <- function(location_name,taxonomy_dir = 'taxonomy-verified', verbose=FALSE,method='name',date=now(),thorough=FALSE){
   
   if(!dir.exists(taxonomy_dir)){
