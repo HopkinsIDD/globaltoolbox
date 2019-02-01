@@ -7,9 +7,9 @@
 if(!require('tidyverse')) install.packages('tidyverse'); library(tidyverse)
 if(!require('RCurl')) install.packages('RCurl'); library(RCurl)
 if(!require('tibble')) install.packages('tibble'); library(tibble)
-if(!require('countrycode')) install.packages('countrycode'); library(countrycode)
-if(!require('rstudioapi')) install.packages('rstudioapi'); library(rstudioapi)
-if(!require('stringdist')) install.packages('stringdist'); library(stringdist)
+  if(!require('countrycode')) install.packages('countrycode'); library(countrycode)
+#if(!require('rstudioapi')) install.packages('rstudioapi'); library(rstudioapi)
+#if(!require('stringdist')) install.packages('stringdist'); library(stringdist)
 
 
 
@@ -63,37 +63,78 @@ if (has_internet) {
     who_regions      <- read.csv("data-raw/who_regions.csv", stringsAsFactors=FALSE)
     dhs_countrydata  <- read.csv("data-raw/DHS_countrydata.csv", stringsAsFactors=FALSE)
     nationality_data <- read.csv("data-raw/nationalities_and_languages.csv", stringsAsFactors=FALSE)
+    alt_country_names <- rworldmap::countrySynonyms
+    region_data_2    <- rworldmap::countryRegions
   },
   error= function(x) print('No Internet Connection')
   )
   
-  dir.create(file.path(source.path, 'iso_source'), showWarnings = FALSE)
-  source.path.folder <- file.path(source.path, 'iso_source')
-  print(paste0("Data will be save in ", file.path(source.path.folder, ".")))
-  
+  # dir.create(file.path(source.path, 'iso_source'), showWarnings = FALSE)
+  # source.path.folder <- file.path(source.path, 'iso_source')
+  # print(paste0("Data will be save in ", file.path(source.path.folder, ".")))
+  # 
   # Write these data to directory if they are available so they are updated
-  write.csv(iso_data, file.path(source.path.folder, 'iso_data.csv'), row.names = FALSE)
-  write.csv(region_data, file.path(source.path.folder, 'region_data.csv'), row.names = FALSE)    
-  write.csv(who_regions, file.path(source.path.folder, 'who_regions.csv'), row.names = FALSE)
-  write.csv(dhs_countrydata, file.path(source.path.folder, 'dhs_countrydata.csv'), row.names = FALSE)
-  write.csv(nationality_data, file.path(source.path.folder, 'nationalities_and_languages.csv'), row.names = FALSE)
+  write.csv(iso_data, 'data-raw/iso_data.csv', row.names = FALSE)
+  write.csv(region_data, 'data-raw/region_data.csv', row.names = FALSE)    
+  write.csv(who_regions, 'data-raw/who_regions.csv', row.names = FALSE)
+  write.csv(dhs_countrydata, 'data-raw/dhs_countrydata.csv', row.names = FALSE)
+  write.csv(nationality_data, 'data-raw/nationalities_and_languages.csv', row.names = FALSE)
+  write.csv(alt_country_names, 'data-raw/alt_country_names.csv', row.names = FALSE)
+  write.csv(region_data_2, 'data-raw/region_data_2.csv', row.names = FALSE)
   
   # If not, use the local data
 } else {
   source.path.folder <- file.path(source.path, 'iso_source')
   
-  if (file.exists(file.path(source.path.folder, 'iso_data.csv'))) {
-    iso_data <- read.csv(file.path(source.path.folder, 'iso_data.csv'), header=TRUE, stringsAsFactors=FALSE)
-    region_data <- read.csv(file.path(source.path.folder, 'region_data.csv'),  header=TRUE, stringsAsFactors=FALSE)
-    who_regions <- read.csv(file.path(source.path.folder, 'who_regions.csv'),  header=TRUE, stringsAsFactors=FALSE)
-    dhs_countrydata <- read.csv(file.path(source.path.folder, 'dhs_countrydata.csv'),  header=TRUE, stringsAsFactors=FALSE)
-    nationality_data <- read.csv(file.path(source.path.folder, 'nationalities_and_languages.csv'),  header=TRUE, stringsAsFactors=FALSE)
+  if (file.exists('data-raw/iso_data.csv')) {
+    iso_data <- read.csv('data-raw/iso_data.csv', header=TRUE, stringsAsFactors=FALSE, na.strings=c(""," ","NA"))
+    region_data <- read.csv('data-raw/region_data.csv',  header=TRUE, stringsAsFactors=FALSE, na.strings=c(""," ","NA"))
+    who_regions <- read.csv('data-raw/who_regions.csv',  header=TRUE, stringsAsFactors=FALSE, na.strings=c(""," ","NA"))
+    dhs_countrydata <- read.csv('data-raw/dhs_countrydata.csv',  header=TRUE, stringsAsFactors=FALSE, na.strings=c(""," ","NA"))
+    nationality_data <- read.csv('data-raw/nationalities_and_languages.csv',  header=TRUE, stringsAsFactors=FALSE, na.strings=c(""," ","NA"))
+    alt_country_names <- read.csv('data-raw/alt_country_names.csv',  header=TRUE, stringsAsFactors=FALSE, na.strings=c(""," ","NA"))
+    region_data_2 <- read.csv('data-raw/region_data_2.csv',  header=TRUE, stringsAsFactors=FALSE, na.strings=c(""," ","NA"))
     
   } else {
     print('No access to internet/github and local files could not be located')
     stop()
   }
 } 
+
+
+
+
+
+# Build Single Region Dataset ---------------------------------------------
+#  - this will be linked using country codes
+
+# Check for missing ISOs
+sum(is.na(region_data$iso))
+sum(is.na(region_data_2$iso))
+sum(is.na(who_regions$iso))
+
+region_data$name <- iconv(region_data$name, from = 'UTF-8', to = 'ASCII//TRANSLIT')
+
+region_data <- full_join(region_data %>% select(iso=alpha.3, country=name, region:intermediate.region.code),
+                         who_regions %>% select(iso, country2=country, who.region, who.region.mortality=region.mortality), 
+                         by=c("iso"="iso")) %>% as.data.frame()
+region_data <- full_join(region_data,
+                         region_data_2 %>% select(ISO3, country3=ADMIN, continent, REGION, GEO3major, GEO3, GLOCAF, Stern, SRESmajor, SRES, GBD),
+                         by=c("iso"="ISO3")) %>% as.data.frame()
+
+# Combine added country names
+region_data$country[is.na(region_data$country) & !is.na(region_data$country2)] <- 
+  region_data$country2[is.na(region_data$country) & !is.na(region_data$country2)]
+region_data$country[is.na(region_data$country) & !is.na(region_data$country3)] <- 
+  region_data$country3[is.na(region_data$country) & !is.na(region_data$country3)]
+
+region_data <- region_data %>% select(-country2, -country3)
+
+#write.csv(region_data, 'data/region_data.csv', row.names = FALSE)
+usethis::use_data(region_data, overwrite = TRUE)
+
+
+
 
 
 
@@ -131,6 +172,11 @@ rm(who.row, region.row, Country2, Country, ISO3, ISO2)
 
 iso_data[iso_data$Country=='Namibia', 'ISO2'] <- 'NA'
 iso_data[iso_data$Country=='Georgia', 'Country2'] <- 'Republic of Georgia'
+
+
+
+
+
 
 
 

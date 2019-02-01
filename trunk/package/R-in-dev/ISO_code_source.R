@@ -1,45 +1,19 @@
 # Get and Use ISO COdes
 
 
-source("R/build_country_data.R")
+source("R/country_data.R")
+source("R/region_data.R")
 
 
 ###################################################
 # Functions For Calling the codes
 
-get.country.names.ISO3 <- function(ISO){
-  return(as.character(iso_data$Country2[match(toupper(ISO), iso_data$ISO3)]))
-}
-
-get.country.names.ISO2 <- function(ISO2){
-  return(as.character(iso_data$Country2[match(toupper(ISO2), iso_data$ISO2)]))
-}
-
-get.ISO3.from.ISO2 <- function(ISO2){
-  return(as.character(iso_data$ISO3[match(toupper(ISO2), iso_data$ISO2)]))
-}
-
-get.ISO2.from.ISO3 <- function(ISO3){
-  return(as.character(iso_data$ISO2[match(toupper(ISO3), iso_data$ISO3)]))
-}
-
-get.country.DHScode <- function(DHS_code){
-  return(as.character(dhs_countrydata$CountryName[match(toupper(DHS_code), toupper(dhs_countrydata$DHS_CountryCode))]))
-}
-
-get.UNcode <- function(country){
-  iso <- get.iso(country, ISO.only=T)
-  return(iso_data$UNcode[match(toupper(iso),iso_data$ISO3)])
-}
-
-get.UNcode.from.ISO3 <- function(ISO3){
-  return(iso_data$UNcode[match(toupper(ISO3), iso_data$ISO3)])
-}
 
 
 iso_match_fun <- function(country){
   
   iso.row.tmp <- which(country==tolower(iso_data$Country) | country==tolower(iso_data$Country2))
+  
   if (length(iso.row.tmp)==0){
     iso.row.tmp <- unique(c(grep(country, tolower(iso_data$Country)), grep(country, tolower(iso_data$Country2))))
   }
@@ -180,6 +154,39 @@ get.iso <- function(country, ISO.only=T){
   }
   return(ISO[country_indexes])
 }
+
+
+
+
+get.country.names.ISO3 <- function(ISO){
+  return(as.character(iso_data$Country2[match(toupper(ISO), iso_data$ISO3)]))
+}
+
+get.country.names.ISO2 <- function(ISO2){
+  return(as.character(iso_data$Country2[match(toupper(ISO2), iso_data$ISO2)]))
+}
+
+get.ISO3.from.ISO2 <- function(ISO2){
+  return(as.character(iso_data$ISO3[match(toupper(ISO2), iso_data$ISO2)]))
+}
+
+get.ISO2.from.ISO3 <- function(ISO3){
+  return(as.character(iso_data$ISO2[match(toupper(ISO3), iso_data$ISO3)]))
+}
+
+get.country.DHScode <- function(DHS_code){
+  return(as.character(dhs_countrydata$CountryName[match(toupper(DHS_code), toupper(dhs_countrydata$DHS_CountryCode))]))
+}
+
+get.UNcode <- function(country){
+  iso <- get.iso(country, ISO.only=T)
+  return(iso_data$UNcode[match(toupper(iso),iso_data$ISO3)])
+}
+
+get.UNcode.from.ISO3 <- function(ISO3){
+  return(iso_data$UNcode[match(toupper(ISO3), iso_data$ISO3)])
+}
+
 
 
 

@@ -5,8 +5,10 @@ Authors@R: c(
             person("Shaun", "Truelove", email = "shauntruelove@jhu.edu", role = c("aut")), 
             person("Joshua", "Kaminsky", email = "jkaminsky$jhu.edu", role = c("aut", "cre")))
 Description: What the package does (one paragraph).
-Depends: R (>= 3.4),ISOcodes,magrittr,dplyr
-Suggests: readxl,sf,lwgeom,tidyr,sp,raster,rgdal,testthat
+Depends: R (>= 3.4),magrittr,dplyr
+Imports: countrycode,countrycode,stringdist,stringr,ISOcodes,lubridate,
+  sf,raster,lwgeom,raster,readr,tidyr,reshape2,curl,rworldmap
+Suggests: readxl,sf,sp,raster,rgdal,testthat
 Maintainer: Shaun Truelove <shauntruelove@jhu.edu>
 License: GPL (>=2)
 Encoding: UTF-8
