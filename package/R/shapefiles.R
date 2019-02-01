@@ -23,7 +23,7 @@ my_ISO_3166_1 = apply(
   }
 )
 
-#' @import ISOcodes
+#' @import  ISOcodes
 my_ISO_3166_2 = ISOcodes::ISO_3166_2
 my_ISO_3166_2$ISO_3166_1_Alpha_2 =
   sapply(strsplit(my_ISO_3166_2$Code,split = '-'),function(x){x[[1]]})
