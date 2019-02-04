@@ -308,7 +308,7 @@ load_covariate_estimates <- function(
 # description Create shapefiles for the worldpop regions.  Only intended to be run on a server or similar
 # return a list of shapefiles one for each worldpop region named.
 create_worldpop_region_shapefiles <- function(){
-  df = read_csv('packages/taxdat/inst/extdata/all_countries.csv',col_names=FALSE)
+  df = read_csv('inst/extdata/all_countries.csv',col_names=FALSE)
   names(df) <- 'country'
   df$who_region = sapply(df$country,lookup_WHO_region)
   df$worldpop_region = sapply(df$country,lookup_WorldPop_region)

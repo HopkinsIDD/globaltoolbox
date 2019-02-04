@@ -4,14 +4,11 @@
 \alias{match_country}
 \title{match_country}
 \usage{
-match_country(a, country_names = country_names, return_ISO = TRUE,
-  return_country_name = FALSE, return_score = FALSE,
-  return_score_matrix = FALSE)
+match_country(a, return_ISO = TRUE, return_country_name = FALSE,
+  return_score = FALSE, return_score_matrix = FALSE)
 }
 \arguments{
 \item{a}{country name to match}
-
-\item{country_names}{country_names df loaded with the package}
 
 \item{return_ISO}{TRUE/FALSE}
 
