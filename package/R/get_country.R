@@ -25,6 +25,15 @@ data('country_codes',package='globaltoolbox')
 match_country <- function(a, #country_names=country_names, 
                                return_ISO=TRUE, return_country_name=FALSE, 
                                return_score=FALSE, return_score_matrix=FALSE){
+  
+  if(length(a)>1 | length(a)==0){
+    stop("ERROR: 'a' can only be of length 1")
+  }
+  if(is.na(a)){
+    return(NA)
+  }
+
+  
   a <- tolower(a)
   a <- str_replace_all(a, "[[:punct:]]", "") # remove all punctuation
   b <- tolower(country_names$names)
@@ -100,6 +109,14 @@ data('locations_lvl2',package='globaltoolbox')
 match_locs_level2 <- function(a, names=locations_lvl2, 
                           return_ISO3=FALSE, return_name=TRUE, return_Code=FALSE,
                           return_score=FALSE, return_score_matrix=FALSE){
+  
+  if(length(a)>1 | length(a)==0){
+    stop("ERROR: 'a' can only be of length 1")
+  }
+  if(is.na(a)){
+    return(NA)
+  }
+  
   a <- tolower(a)
   a <- str_replace_all(a, "[[:punct:]]", "") # remove all punctuation
   b <- tolower(names$Name)
@@ -163,6 +180,15 @@ data('city_data',package='globaltoolbox')
 #' @export
 match_city <- function(a, return_ISO3=FALSE, return_name=TRUE,
                           return_score=FALSE, return_score_matrix=FALSE){
+  
+  if(length(a)>1 | length(a)==0){
+    stop("ERROR: 'a' can only be of length 1")
+  }
+  if(is.na(a)){
+    return(NA)
+  }
+  
+  
   a <- tolower(a)
   a <- str_replace_all(a, "[[:punct:]]", "") # remove all punctuation
   b <- tolower(city_data$city_ascii)

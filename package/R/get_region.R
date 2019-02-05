@@ -22,7 +22,7 @@ get.who.region <- function(ISO){
 #' @return vector of regions 
 #' @export
 get.region <- function(ISO){
-  return(as.character(region_data$Region[match(toupper(ISO), region_data$ISO3)]))
+  return(as.character(region_data$region[match(toupper(ISO), region_data$ISO3)]))
 }
 
 
@@ -34,6 +34,6 @@ get.region <- function(ISO){
 #' @return vector of subregions 
 #' @export
 get.subregion <- function(ISO){
-  return(as.character(region_data$Sub.Region[match(toupper(ISO), region_data$ISO3)]))
+  return(as.character(region_data$sub.region[match(toupper(ISO), region_data$ISO3)]))
 }
 
