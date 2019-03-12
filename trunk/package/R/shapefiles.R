@@ -23,7 +23,7 @@ my_ISO_3166_1 = apply(
   }
 )
 
-#' @import  ISOcodes
+#' @import ISOcodes
 my_ISO_3166_2 = ISOcodes::ISO_3166_2
 my_ISO_3166_2$ISO_3166_1_Alpha_2 =
   sapply(strsplit(my_ISO_3166_2$Code,split = '-'),function(x){x[[1]]})
@@ -40,7 +40,6 @@ my_ISO_3166_2 = apply(
   }
 )
 
-#' @importFrom dplyr inner_join
 my_ISO_3166 = inner_join(
   as.data.frame(my_ISO_3166_1,stringsAsFactors=FALSE),
   as.data.frame(my_ISO_3166_2,stringsAsFactors=FALSE),
@@ -49,6 +48,7 @@ my_ISO_3166 = inner_join(
 data('WHO_regions',package='globaltoolbox')
 my_WHO_regions = apply(WHO_regions,2,toupper)
 
+#' @export get_shape_file
 #' @name get_shape_file
 #' @title get_shape_file
 #' @description Look up the GADM shapefile for a particular location
@@ -58,7 +58,6 @@ my_WHO_regions = apply(WHO_regions,2,toupper)
 #' @param method which method to use when pulling shapefiles.  If \code{method =='center'}, then use the central points listed in the shape files.  If \code{method=='name'} use the names.
 #' @return an sf::sf with the results
 #' @importFrom lubridate now
-#' @export
 get_shape_file <- function(location_name,taxonomy_dir = 'taxonomy-verified', verbose=FALSE,method='name',date=now(),thorough=FALSE){
   
   if(!dir.exists(taxonomy_dir)){
@@ -145,6 +144,8 @@ get_shape_file <- function(location_name,taxonomy_dir = 'taxonomy-verified', ver
           ungrouped_shapefiles$geometry[[this_idx]][[1]] = loc_file$cent_lon
         }
       }
+      # Update bounding box
+      ungrouped_shapefiles = st_update_bounding_box(ungrouped_shapefiles)
     }
     if(
       (!('gis_file' %in% names(loc_file)))
@@ -358,6 +359,8 @@ get_shape_file <- function(location_name,taxonomy_dir = 'taxonomy-verified', ver
       
     }
   }
+  # Update bounding box
+  ungrouped_shapefiles = st_update_bounding_box(ungrouped_shapefiles)
   # ungrouped_shapefiles %>% group_by(shapefile_source) %>% do({tmp = .; tmp$shapefile = st_read(tmp$shapefile_source)$geometry})
 ###   if(method=='center'){
 ###     
@@ -1075,14 +1078,14 @@ get_country_shapefile = function(name,taxonomy_dir = 'taxonomy-verified',verbose
 #' @param land_only boolean If TRUE, try to filter out shapefiles that are not associated with land regions.
 #' @param verbose Set to TRUE for more warnings and messages.
 #' @importFrom lubridate now
-get_country_sublevels = function(location_name,ISO_level,taxonomy_dir = 'taxonomy-verified', land_only=FALSE,method='center',layers_dir = 'Layers',date=now(),verbose=method=='center'){
+get_country_sublevels = function(location_name,ISO_level,taxonomy_dir = 'taxonomy-verified', land_only=FALSE,method='center',layers_dir = 'Layers',date=now(),verbose=(method=='center')){
   
   ## just because I always forget 
   if(endsWith(taxonomy_dir,"/")){
     taxonomy_dir <- substr(taxonomy_dir,1,nchar(taxonomy_dir)-1)
   }
-  
-  location_name = fix_location_name(paste("???",fix_country_name(location_name),sep='_'),taxonomy_dir = taxonomy_dir,verbose=FALSE)
+  location_name = fix_country_name(location_name)
+  location_name = paste(lookup_WHO_region(location_name),location_name,sep='_')
   ISO_A1 = strsplit(x = location_name,split="_")[[1]][2]
   ## Check for custom shapefiles.
   
@@ -1104,12 +1107,12 @@ get_country_sublevels = function(location_name,ISO_level,taxonomy_dir = 'taxonom
         loc_name = strsplit(loc,'_')[[1]]
         loc_name = loc_name[1:(length(loc_name)-1)]
         loc_name = paste(loc_name,collapse='_')
-        return(get_shape_file(location_name = loc_name,taxonomy_dir = taxonomy_dir,layers_dir = layers_dir,verbose = verbose,method = 'center',date = date))
+        return(get_shape_file(location_name = loc_name,taxonomy_dir = taxonomy_dir,verbose = verbose,method = 'center',date = date))
       }
     )
     if(any(duplicated(allshp) & (!sapply(allshp, is.null)))){
       if(verbose){
-        duplicate_idx <- duplicated(allshp) & (!sapply(allshp, is.null))
+        duplicate_idx <- which(duplicated(allshp) & (!sapply(allshp, is.null)))
         for(idx in duplicate_idx){
           matches = sapply(allshp,function(x){all.equal(allshp[[idx]],x) == TRUE})
           paste('Location',alllocs[idx],'is a duplicate of ',alllocs[matches])
@@ -1117,13 +1120,21 @@ get_country_sublevels = function(location_name,ISO_level,taxonomy_dir = 'taxonom
       }
     }
     allshp <- reduce_sf_vector(unique(allshp))
-    if(verbose){
-      cntry_shp <- get_shape_file(location_name)
-      #' @importFrom sf st_equals
-      #' @importFrom sf st_union
-      if(!st_equals(cntry_shp$geometry,st_union(allshp),sparse = FALSE)){
-        warning("Sublevels incomplete")
-      }
+    cntry_shp <- get_shape_file(location_name,taxonomy_dir,method=method)
+    if(is.na(st_crs(allshp))){
+      st_crs(allshp) = st_crs(cntry_shp)
+    }
+    #' @importFrom sf st_is_valid
+    problem_idx = which(!st_is_valid(allshp))
+    if(length(problem_idx) > 0){
+      #' @importFrom lwgeom st_make_valid
+      allshp$geometry[problem_idx] = st_make_valid(allshp$geometry[problem_idx])
+    }
+    allshp = allshp[!is.na(st_dimension(allshp)),]
+    #' @importFrom sf st_equals
+    #' @importFrom sf st_union
+    if(!st_equals(cntry_shp$geometry,st_union(allshp),sparse = FALSE)){
+      warning("Sublevels incomplete")
     }
     return(allshp)
   }
@@ -1438,6 +1449,12 @@ reduce_sf_vector <- function(vec){
   if(length(vec) == 0){
     return(st_sf(st_sfc()))
   }
+  if(is.null(names(vec))){
+    names(vec) = 1:length(vec)
+  }
+  if(length(names(vec)) != length(vec)){
+    names(vec) = 1:length(vec)
+  }
   k = 1
   all_columns = unlist(vec,recursive=FALSE)
   split_names = strsplit(names(all_columns),'.',fixed=TRUE)
@@ -1460,7 +1477,19 @@ standardize_string <- function(string){
   string = as.character(string)
   string = strsplit(string,'|',fixed=TRUE)
   string = lapply(string,function(x){gsub(' ','',x)})
-  string = lapply(string,function(x){iconv(from='UTF-8',to='ASCII//TRANSLIT',x)})
+  string = lapply(string,function(x){
+    if(length(x) == 0){
+      return(x)
+    }
+    for(i in 1:length(x)){
+      if(Encoding(x[i]) != 'unknown'){
+        x[i] = iconv(from=Encoding(x[i]),to='ASCII//TRANSLIT',x[i])
+      } else {
+        x[i] = iconv(from='UTF-8',to='ASCII//TRANSLIT',x[i])
+      }
+    }
+    return(x)
+  })
   string = lapply(string,function(x){gsub('[[:punct:]]','',x)})
   string = lapply(string,function(x){toupper(x)})
   string[sapply(string,length) == 0] = ''
@@ -1671,4 +1700,28 @@ group_location_sf <- function(location_sf){
     location_sf = rbind(location_sf_unpiped,location_sf_piped)
   }
   return(location_sf)
+}
+
+#' @export
+#' @name st_update_bounding_box
+#' @title st_update_bounding_box
+#' @description Make sure the bounding box of a sf object is correct
+#' @param shp an sf object
+#' @return a copy of shp with a modified bounding box
+st_update_bounding_box <- function(shp){
+  original_bbox = st_bbox(shp)
+  new_bbox = as.vector(st_bbox(shp[1,]$geometry))
+  names(new_bbox) = c('xmin','ymin','xmax','ymax')
+  for(i in 1:nrow(shp)){
+    this_bbox = st_bbox(shp$geometry[[i]])
+    new_bbox['xmin'] = min(new_bbox['xmin'],this_bbox['xmin'])
+    new_bbox['ymin'] = min(new_bbox['ymin'],this_bbox['ymin'])
+    new_bbox['xmax'] = max(new_bbox['xmax'],this_bbox['xmax'])
+    new_bbox['ymax'] = max(new_bbox['ymax'],this_bbox['ymax'])
+    
+  }
+  attr(new_bbox,'class') = 'bbox'
+  #' @importFrom sf st_geometry st_geometry<-
+  attr(st_geometry(shp),'bbox') = new_bbox
+  return(shp)
 }
