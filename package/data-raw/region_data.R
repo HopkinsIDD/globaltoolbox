@@ -21,7 +21,7 @@ error= function(x) print('No Internet Connection')
 )
 
 # Write these data to directory if they are available so they are updated
-write.csv(region_data, 'data-raw/region_data.csv', row.names = FALSE)     
+write.csv(region_data, 'data-raw/region_data_1.csv', row.names = FALSE)     
 write.csv(who_regions, 'data-raw/who_regions.csv', row.names = FALSE)
 write.csv(region_data_2, 'data-raw/region_data_2.csv', row.names = FALSE)
 
@@ -55,3 +55,5 @@ region_data <- region_data %>% select(-country2, -country3) %>% rename(ISO3=iso)
 
 #write.csv(region_data, 'data/region_data.csv', row.names = FALSE)
 usethis::use_data(region_data, overwrite = TRUE)
+
+write.csv(region_data, 'data-raw/region_data.csv', row.names = FALSE)     

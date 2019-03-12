@@ -1,0 +1,13 @@
+* installing *source* package 'globaltoolbox' ...
+** R
+** data
+*** moving datasets to lazyload DB
+** inst
+** byte-compile and prepare package for lazy loading
+Note: possible error in 'get_shape_file(location_name = loc_name, ': unused argument (layers_dir = layers_dir) 
+** help
+*** installing help indices
+** building package indices
+** testing if installed package can be loaded
+* DONE (globaltoolbox)
+In R CMD INSTALL
