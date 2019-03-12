@@ -1,0 +1,54 @@
+
+R version 3.5.2 (2018-12-20) -- "Eggshell Igloo"
+Copyright (C) 2018 The R Foundation for Statistical Computing
+Platform: x86_64-w64-mingw32/x64 (64-bit)
+
+R is free software and comes with ABSOLUTELY NO WARRANTY.
+You are welcome to redistribute it under certain conditions.
+Type 'license()' or 'licence()' for distribution details.
+
+R is a collaborative project with many contributors.
+Type 'contributors()' for more information and
+'citation()' on how to cite R or R packages in publications.
+
+Type 'demo()' for some demos, 'help()' for on-line help, or
+'help.start()' for an HTML browser interface to help.
+Type 'q()' to quit R.
+
+> library(testthat)
+> library(globaltoolbox)
+Loading required package: magrittr
+
+Attaching package: 'magrittr'
+
+The following objects are masked from 'package:testthat':
+
+    equals, is_less_than, not
+
+Loading required package: dplyr
+
+Attaching package: 'dplyr'
+
+The following object is masked from 'package:testthat':
+
+    matches
+
+The following objects are masked from 'package:stats':
+
+    filter, lag
+
+The following objects are masked from 'package:base':
+
+    intersect, setdiff, setequal, union
+
+> 
+> test_check("globaltoolbox")
+Error in parse(textConnection(lines, encoding = "UTF-8"), n = -1, srcfile = srcfile,  : 
+  testthat/test-get_country.R:15:0: unexpected end of input
+13:     
+14:     
+   ^
+Calls: test_check ... FUN -> with_reporter -> force -> source_file -> parse
+== testthat results  ===============================
+OK: 0 SKIPPED: 0 FAILED: 0
+Execution halted
