@@ -45,7 +45,7 @@ my_ISO_3166 = inner_join(
   as.data.frame(my_ISO_3166_2,stringsAsFactors=FALSE),
   by=c("Alpha_2"="ISO_3166_1_Alpha_2"))
 
-data('WHO_regions',package='globaltoolbox')
+data('WHO_regions',package='taxdat')
 my_WHO_regions = apply(WHO_regions,2,toupper)
 
 #' @export get_shape_file
@@ -575,12 +575,12 @@ exists_shape_file = function(location,taxonomy_dir = 'taxonomy-verified',verbose
 #' @param location A character vector of names of a locations to fix
 #' @param taxonomy_dir Name of a taxonomy directory (shapefiles will be stored here)
 #' @return A character containing the corrected filename or NA in case of failure
-fix_location_name = function(location,taxonomy_dir = 'taxonomy-verified',verbose=FALSE){
+fix_location_name = function(location,taxonomy_dir = 'taxonomy-verified',verbose=FALSE,method='name'){
   location = standardize_locations(location)
 
   # location should look like `WHO-REGION_ISO-A1_ISO-A2-L1_...`
   # get each component
-  ungrouped_shapefiles = create_location_sf(location,date=NA,thorough=FALSE)
+  ungrouped_shapefiles = create_location_sf(location,date=NA,thorough=TRUE)
   if(nrow(ungrouped_shapefiles) == 0){
     if(verbose){
       warning("Location not provided")
@@ -638,247 +638,71 @@ fix_location_name = function(location,taxonomy_dir = 'taxonomy-verified',verbose
     )
   )
   ungrouped_shapefiles$location = standardize_locations(ungrouped_shapefiles$location)
-  tmp_shapefiles = get_shape_file(ungrouped_shapefiles$location,taxonomy_dir = taxonomy_dir,thorough=TRUE,method="name")
-  valid_shapefiles = st_dimension(tmp_shapefiles) > 1
-  valid_shapefiles[is.na(valid_shapefiles)] = FALSE
-  if(any(!valid_shapefiles)){
+  ungrouped_shapefiles$geometry = get_shape_file(ungrouped_shapefiles$location,taxonomy_dir = taxonomy_dir,thorough=FALSE,method='name')$geometry
+  ungrouped_shapefiles$valid  = st_dimension(ungrouped_shapefiles) > 1
+  ungrouped_shapefiles$valid[is.na(ungrouped_shapefiles$valid)] = FALSE
+  
+  ## Fix invalid shapefiles by looking for their container
+  if(any(!ungrouped_shapefiles$valid)){
+    invalid_idx = rev(which(!ungrouped_shapefiles$valid))
+    for(idx in invalid_idx){
+      iso_level = ungrouped_shapefiles$ISO_A2_level[idx]
+      possible_shapefiles = get_country_sublevels(ungrouped_shapefiles$ISO_A1,iso_level,taxonomy_dir = taxonomy_dir,method=method)
+      if(!is.na(ungrouped_shapefiles$geometry[idx+1])){
+        match_idx = which(st_intersects(ungrouped_shapefiles$geometry[idx+1],possible_shapefiles,sparse = FALSE))
+        if(length(match_idx)==1){
+          ungrouped_shapefiles$geometry[idx] = possible_shapefiles$geometry[match_idx]
+          ungrouped_shapefiles=ungrouped_shapefiles %>%
+            mutate_(.dots = setNames(
+              paste(
+                "ifelse((arg_idx == ",
+                ungrouped_shapefiles$arg_idx[idx],
+                ") &(ISO_A2_level >= ",
+                iso_level,
+                "),\"",
+                possible_shapefiles[[paste0('NAME_',iso_level)]][match_idx],
+                "\",",
+                paste0("ISO_A2_L",iso_level),
+                ")"
+              ),
+              paste0("ISO_A2_L",iso_level)
+            ))
+        }
+      }
+    }
+  }
+  
+  ungrouped_shapefiles$ISO_A2_L1 = fix_a2_l1_name(country_name = ungrouped_shapefiles$ISO_A1,location_name=ungrouped_shapefiles$ISO_A2_L1)
+  ungrouped_shapefiles$valid  = st_dimension(ungrouped_shapefiles) > 1
+  ungrouped_shapefiles$valid[is.na(ungrouped_shapefiles$valid)] = FALSE
+  valid_locations = ungrouped_shapefiles %>% group_by(arg_idx) %>% summarize(valid = all(valid)) %>% .$valid
+  if(any(!valid_locations)){
     warning(paste("Could not fix the following locations:",paste(ungrouped_shapefiles$old_location,collapse=', ')))
   }
-  ungrouped_shapefiles[!valid_shapefiles,]$location = ungrouped_shapefiles[!valid_shapefiles,]$old_location
+  column_names = c(
+    'who_region',
+    'ISO_A1',
+    sort(names(ungrouped_shapefiles)[grepl('^ISO_A2_L[1234567890]*$',names(ungrouped_shapefiles))])
+  )
+  ungrouped_shapefiles = mutate_(
+    ungrouped_shapefiles,
+    .dots = setNames(
+      paste(
+        "paste(",
+        paste(
+          column_names,
+          collapse=', '
+        ),
+        ", sep='_')"
+      ),'location'
+    )
+  )
+  ungrouped_shapefiles$location = standardize_locations(ungrouped_shapefiles$location)
+  grouped_shapefiles = group_location_sf(ungrouped_shapefiles)
+  setNames(grouped_shapefiles$location,grouped_shapefiles$old_location)
   ## Things still missing: validate ISO_A2_L1 with that table
-  return(ungrouped_shapefiles$location)
+  return(setNames(grouped_shapefiles$location,grouped_shapefiles$old_location))
 
-  ## We're going to try and pull a Shapefile for more information
-  tmp.location = paste(who_region,ISO_A1,sep='_')
-  ## the non iso_al info
-  ISO_names = location.array[-1]
-  #This tests to see if the ISO is valid, but cannot correct it
-  # Add code to convert the ISO_A1 region into the country code from various forms including name and ISO2 codes
-  err <- tryCatch({
-    shapefile = get_shape_file(tmp.location, taxonomy_dir)
-    #This will get the standard ISO_A1 region
-    ISO_names[1] = shapefile[["NAME_ENGLISH"]]
-    0
-  }, error = function(e) {
-    warning(e$message)
-    if(verbose){
-      message("The ISO_A1 region", tmp.location, "is not valid.")
-    }
-    return(1)
-  })
-  
-  if(err != 0){return(NA)}
-  
-  # Now we go back and make sure the who region we have is the same as the one associated with the ISO_A1
-  old.who_region = who_region
-  who_region = who_region_shortener[
-    dplyr::filter(WHO_regions,Country.code == ISO_A1)$WHO.region
-    ]
-  if(verbose){
-    if(is.na(old.who_region)){
-      message("who region is not a valid region")
-    } else if(old.who_region != who_region){
-      message("The who region was changed to match the country")
-    }
-  }
-  
-  # Return if done
-  if(length(location.array) == 2){
-    return(paste(who_region,ISO_A1,sep='_'))
-  }
-  #location.array has at least three elements
-  ISO_A2 = location.array[3:length(location.array)]
-  old.ISO_A2 = ISO_A2
-  ISO_A2_level = length(location.array)-2
-  
-  if(!file.exists(paste(taxonomy_dir,"ShapeFiles",sep='/'))){
-    stop("The directory",taxonomy_dir,"should exists, and have a subdirectory called ShapeFiles")
-  }
-  # Now we check each ISO_A2 level to make sure it exists.
-  for(level in 1:ISO_A2_level){
-    
-    ISO_A2[level] = toupper(
-      gsub('[[:punct:]]',
-           '',
-           gsub(' ','',
-                iconv(ISO_A2[level],from='UTF-8',
-                      to='ASCII//TRANSLIT'))))
-    
-    destination = paste(taxonomy_dir,'/ShapeFiles/',ISO_A1,'_adm',level,'.rds',sep='')
-    if(!file.exists(destination)){
-      website = paste("http://biogeo.ucdavis.edu/data/gadm2.8/rds/",ISO_A1,"_adm",level,".rds",sep='')
-      try({download.file(website,destination,mode='wb')})
-    }
-    if(!file.exists(destination)){
-      if(verbose){
-        message(paste("Could not find shape file at ISO_A2 level",level))
-      }
-      return(NA)
-    }
-    #' @importFrom sf st_as_sf
-    all_shape_files = st_as_sf(readRDS(destination))
-    #' @importFrom sf st_is_valid
-    if(!all(suppressWarnings(st_is_valid(all_shape_files)))){
-      #' @importFrom lwgeom st_make_valid
-      all_shape_files <- suppressWarnings(st_make_valid(all_shape_files))
-    }
-    relevent_fields = names(all_shape_files)[endsWith(names(all_shape_files),suffix = as.character(level))]
-    for(field in relevent_fields){
-      tmp_field = paste(field,'tmp',sep='_')
-      all_shape_files[[tmp_field]] = all_shape_files[[field]]
-      if(mode(all_shape_files[[field]])==mode(character(0))){
-        all_shape_files[[tmp_field]] = strsplit(all_shape_files[[tmp_field]],'|',fixed=TRUE)
-        all_shape_files[[tmp_field]] = lapply(all_shape_files[[tmp_field]],function(x){gsub(' ','',x)})
-        all_shape_files[[tmp_field]] = lapply(all_shape_files[[tmp_field]],function(x){iconv(from='UTF-8',to='ASCII//TRANSLIT',x)})
-        all_shape_files[[tmp_field]] = lapply(all_shape_files[[tmp_field]],function(x){gsub('[[:punct:]]','',x)})
-        all_shape_files[[tmp_field]] = lapply(all_shape_files[[tmp_field]],function(x){toupper(x)})
-        all_shape_files[[tmp_field]][sapply(all_shape_files[[tmp_field]],length) == 0] = ''
-      }
-    }
-    
-    this_shape_file = all_shape_files[apply(
-      sapply(
-        names(all_shape_files)[endsWith(names(all_shape_files),suffix='tmp')],
-        function(field){
-          sapply(
-            1:length(all_shape_files[[field]]),
-            function(index){
-              if(mode(all_shape_files[[field]]) == 'list'){
-                ISO_A2[level] %in% all_shape_files[[field]][[index]]
-              } else {
-                ISO_A2[level] == all_shape_files[[field]][index]
-              }
-            }
-          )
-        }
-      ),1,function(x){any(x,na.rm=TRUE)}),]
-    
-    if(nrow(this_shape_file) == 0){
-      if((level==1) & (ISO_A2[level] %in% my_ISO_3166_2[,'Code'])){
-        old.ISO_A2_L1 = ISO_A2[level]
-        ISO_A2[level] = my_ISO_3166_2[(ISO_A2[level] == my_ISO_3166_2[,'Code']),"Name"]
-        this_shape_file = all_shape_files[apply(
-          sapply(
-            names(all_shape_files)[endsWith(names(all_shape_files),suffix='tmp')],
-            function(field){
-              sapply(
-                1:length(all_shape_files[[field]]),
-                function(index){
-                  if(mode(all_shape_files[[field]]) == 'list'){
-                    ISO_A2[level] %in% all_shape_files[[field]][[index]]
-                  } else {
-                    ISO_A2[level] == all_shape_files[[field]][index]
-                  }
-                }
-              )
-            }
-          ),1,function(x){any(x,na.rm=TRUE)}),]
-        if(nrow(this_shape_file) == 0){
-          if(verbose){
-            warning(paste("Could not find shapefile corresponding to ISO_A2_L1 region",ISO_A2[level],"."))
-          }
-          return(NA)
-        }
-        
-        if(nrow(this_shape_file) > 1){
-          if(verbose){
-            warning(paste("Found too many shapefiles corresponding to ISO_A2_L1 region",ISO_A2[level],"."))
-          }
-          # return(NA)
-        }
-        
-        ISO_A2[level] = old.ISO_A2_L1
-        ##For this case, we can look up this ISO_31666_2 code
-      } else {
-        if(verbose){
-          warning(paste("Could not find ISO_A2_L",level," region.",sep=''))
-        }
-        return(NA)
-      }
-    }
-    
-    ISO_A2[level] = this_shape_file[[paste('NAME',level,sep='_')]]
-    ISO_A2[level] = gsub(' ','-',ISO_A2[level])
-    ISO_names[level+1] = this_shape_file[[paste('NAME',level,sep='_')]]
-  }
-  
-  
-  if(verbose && (any(ISO_A2 != old.ISO_A2))){
-    message("changed ISO_A2 information")
-  }
-  
-  tmp.location = paste(who_region,ISO_A1,paste(ISO_A2[1:ISO_A2_level],collapse='_'),sep='_')
-  shapefile = as.data.frame(get_shape_file (tmp.location,taxonomy_dir))
-  if(nrow(shapefile) == 0){
-    if(verbose){
-      warning("The location in question could not be found")
-    }
-    return(NA)
-  }
-  if(nrow(shapefile) > 1){
-    index = which(apply(
-      sapply(0:ISO_A2_level,function(x){shapefile[[paste("NAME",x,sep='_')]] %in% ISO_names}),
-      1,
-      prod
-    )==1)
-    if(length(index) > 1){
-      warning("This part isn't written yet.")
-      return(NA)
-    }
-    if(length(index) < 1){
-      warning("This part isn't written yet.")
-      return(NA)
-    }
-    shapefile <- shapefile[index,]
-  }
-  ISO_A2 = shapefile[,startsWith(names(shapefile),'NAME') & (!endsWith(names(shapefile),'0')) & (!endsWith(names(shapefile),'tmp'))]
-  
-  if(verbose && (!all(old.ISO_A2 %in% ISO_A2))){
-    message("The ISO regions were changed when looking up the shapefile")
-  }
-  
-  old.ISO_A2 = ISO_A2
-  ## Use this later
-  ISO_A2 = old.ISO_A2[1]
-  tmp.location = paste(who_region,ISO_A1,paste(ISO_A2,collapse='_'),sep='_')
-  shapefile = get_shape_file(tmp.location,taxonomy_dir)
-  if(nrow(shapefile) == 0){
-    if(verbose){
-      warning(paste("Could not find shpaefile corresponding to ISO_A1 region",tmp.location))
-    }
-    return(NA)
-  }
-  ISO_A2[1] = gsub('\\.','-',shapefile$HASC_1)
-  if(is.na(ISO_A2[1])){
-    if(verbose){
-      warning("No 2 letter code provided.  Returning NULL")
-    }
-    return(NA)
-  }
-  if(verbose && (old.ISO_A2[1] != ISO_A2[1])){
-    message("Changed ISO_A2_L1 to abbreviated form.")
-  }
-  old.ISO_A2[1] = ISO_A2[1]
-  ISO_A2 = old.ISO_A2
-  location = paste(who_region,ISO_A1,paste(ISO_A2,collapse='_'),sep='_')
-  if(nchar(location) < 5){
-    # browser()
-  }
-  location.tmp = location
-  location.tmp = gsub('-','dashcharacter',location.tmp)
-  location.tmp = gsub('_','underscorecharacter',location.tmp)
-  location.tmp = gsub("[[:punct:]]",'',location.tmp)
-  location.tmp = gsub(' ','',location.tmp)
-  location.tmp = iconv(location.tmp, from="UTF-8",to="ASCII//TRANSLIT")
-  location.tmp = gsub('dashcharacter','-',location.tmp)
-  location.tmp = gsub('underscorecharacter','_',location.tmp)
-  if(verbose && (location != location.tmp)){
-    message("Changed location to be ascii and punctuation free")
-  }
-  location.tmp[is.na(location.tmp)] = location[is.na(location.tmp)]
-  return(location.tmp)
-  
-  return(location)
 }
 
 #' @export
@@ -1249,6 +1073,98 @@ fix_country_name <- function(country_name,verbose=TRUE){
 }
 
 #' @export
+#' @name fix_a2_l1_name
+#' @title fix_a2_l1_name
+#' @description Change an iso_a2_l1 name to its ISO_3166_1 code
+#' @param location_name the name of the location to fix
+fix_a2_l1_name <- function(location_name,country_name = NULL,verbose=TRUE){
+  location_name = standardize_string(location_name)
+  fname <- system.file("extdata","isoa2l1_aliases.csv",package = "taxdat")
+  if(nchar(fname) == 0){
+    if(verbose){
+      warning("Could not load isoa2l1_aliases.csv from the package directory.  Try reinstalling the package or contacting the maintainer.")
+    }
+    return(NA)
+  }
+  a2_l1_aliases  = tryCatch(
+    read.csv(
+      fname,
+      sep=',',
+      header=TRUE,
+      stringsAsFactors=FALSE,
+      na.strings = "",
+      colClasses = 'character',
+      quote = "\"",
+      check.names = FALSE
+    ),
+    warning = function(w){
+      if(length(w$message > 0)){
+        if(grepl(pattern="ncomplete final line",x=w$message)){
+          return(suppressWarnings(
+            read.csv(
+              fname,
+              sep=',',
+              header=TRUE,
+              stringsAsFactors=FALSE,
+              na.strings = "",
+              colClasses = 'character',
+              quote = "\"",
+              check.names = FALSE
+            )
+          ))
+        }
+      }
+      if(verbose){
+        warning(paste(fname,":",w$message),immediate.=TRUE)
+      }
+      return(w)
+    },
+    error = function(e){
+      if(verbose){
+        warning(paste(fname,":",e),immediate.=TRUE)
+      }
+      return(e)
+    }
+  )
+  rc <- NA
+  # a2_l1_aliases[,1] = sapply(standardize_string(a2_l1_aliases[,1]),function(x){x[[1]]})
+  # a2_l1_aliases[,2] = sapply(standardize_string(a2_l1_aliases[,2]),function(x){x[[1]]})
+  a2_l1_aliases[,3] = sapply(standardize_string(a2_l1_aliases[,3]),function(x){x[[1]]})
+  a2_l1_aliases[,4] = sapply(standardize_string(a2_l1_aliases[,4]),function(x){x[[1]]})
+  a2_l1_aliases[,5] = sapply(standardize_string(a2_l1_aliases[,5]),function(x){x[[1]]})
+  rc = rep('',length(location_name))
+  for(location_idx in 1:length(location_name)){
+    if(location_name[location_idx] %in% a2_l1_aliases[,2]){
+      rc[location_idx] <- location_name[location_idx]
+    } else if(location_name[location_idx] %in% a2_l1_aliases[,3]){
+      rc[location_idx] <- unique(a2_l1_aliases[location_name[location_idx] == a2_l1_aliases[,3],2])
+    } else if(location_name[location_idx] %in% a2_l1_aliases[,4]){
+      rc[location_idx] <- unique(a2_l1_aliases[location_name[location_idx] == a2_l1_aliases[,4],2])
+    } else if(location_name[location_idx] %in% a2_l1_aliases[,5]){
+      rc[location_idx] <- unique(a2_l1_aliases[location_name[location_idx] == a2_l1_aliases[,5],2])
+    }
+  }
+  if(verbose){
+    mapply(
+      new=rc,
+      old=location_name,
+      function(new,old){
+        if(is.na(old)){
+          message("ISO_A2_L1 ",old," is not a valid region")
+        } else if(is.na(new)){
+          message("ISO_A2_L1 ",old," could not be located in the lookup table maintained by the package")
+        } else if(old != new){
+          message("The ISO_A2_L1 was changed from ",old," to ",new," using the lookup table maintained by the package")
+        }
+      }
+    )
+  }
+  return(rc)
+}
+
+
+
+#' @export
 #' @name extract_shapefile_from_raster
 #' @title extract_shapefile_from_raster
 #' @description Get only the parts of a shapefile that are nearby the raster in question.
@@ -1505,9 +1421,15 @@ standardize_locations <- function(location_name){
   location_tmp = gsub('UNDERSCORECHARACTER','_',location_tmp,fixed=TRUE)
   location_tmp = gsub('DASHCHARACTER','-',location_tmp,fixed=TRUE)
   location_tmp = gsub('VERTCHARACTER','|',location_tmp,fixed=TRUE)
-  location_tmp = gsub('__','_',location_tmp,fixed=TRUE)
-  location_tmp = gsub('_$','',location_tmp)
-  location_tmp = gsub('_NA$','',location_tmp)
+  while(any(
+    grepl(pattern = '_$',location_tmp) ||
+    grepl(pattern = '_NA$',location_tmp) ||
+    grepl(pattern = '__',location_tmp)
+    )){
+    location_tmp = gsub('__','_',location_tmp,fixed=TRUE)
+    location_tmp = gsub('_NA$','',location_tmp)
+    location_tmp = gsub('_$','',location_tmp)
+  }
   return(location_tmp)
 }
 
