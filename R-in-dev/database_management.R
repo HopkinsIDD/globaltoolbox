@@ -1,3 +1,6 @@
+default_database_filename = function(){
+  system.file("extdata","globaltoolbox.sqlite",package = "globaltoolbox")
+}
 #' @export
 #' @description Setup the database for holding the location tree and shapefiles.
 #'   Requires postgres database already set up.  For instructions on how to set
@@ -8,7 +11,7 @@ create_database <- function(dbname = 'globaltoolbox',...){
   ## Create Tables
 
   #' @importFrom RPostgreSQL dbConnect dbDriver
-  con <- dbConnect(drv=dbDriver("PostgreSQL"),dbname=dbname,...)
+  con <- dbConnect(drv=dbDriver("PostgreSQL"),default_database_filename(),...)
   
   ## The first table holds the locations and any metadata
   dbGetQuery(con, "CREATE TABLE IF NOT EXISTS public.locations ( id SERIAL, name varchar COLLATE
@@ -27,7 +30,7 @@ create_database <- function(dbname = 'globaltoolbox',...){
   
   ## Populate with WHO regions
   database_create_location("AFR",5,25,{})
-  database_create_location("AMR",NA,NA,{})
+  database_create_location("AMR",15,-87,{})
   database_create_location("EUR",NA,NA,{})
   database_create_location("SEAR",NA,NA,{})
   database_create_location("EMR",NA,NA,{})
