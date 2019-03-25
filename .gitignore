@@ -4,3 +4,5 @@
 /NAMESPACE
 *.Rproj
 man/*.Rd
+tmpdatabase.sqlite
+fakedatabase.sqlite

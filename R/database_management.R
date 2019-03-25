@@ -14,7 +14,7 @@ reset_database <- function(dbname = default_database_filename()){
   #' @importFrom RSQLite SQLite
   #' @importFrom DBI dbConnect
   con <- dbConnect(drv=SQLite(),dbname)
-  #' @importFrom DBI dbSendQuery dbClearResults
+  #' @importFrom DBI dbSendQuery dbClearResult
   dbClearResult(dbSendQuery(con, "DROP TABLE locations"))
   dbClearResult(dbSendQuery(con, "DROP TABLE location_hierarchy"))
   dbClearResult(dbSendQuery(con, "DROP TABLE location_geometries"))
