@@ -4,10 +4,29 @@ Version: 0.0.0.9000
 Authors@R: c(
             person("Shaun", "Truelove", email = "shauntruelove@jhu.edu", role = c("aut")), 
             person("Joshua", "Kaminsky", email = "jkaminsky$jhu.edu", role = c("aut", "cre")))
-Description: What the package does (one paragraph).
-Depends: R (>= 3.4),magrittr,dplyr
-Imports: countrycode,countrycode,stringdist,stringr,ISOcodes,lubridate,
-  sf,raster,lwgeom,raster,readr,tidyr,reshape2,curl,rworldmap
+Description: globaltoolbox allows users to standardize location names, and use those standardized names to extract data about the location.
+Depends: 
+    R (>= 3.4),
+    magrittr,
+    dplyr
+Imports: 
+    countrycode,
+    stringdist,
+    stringr,
+    ISOcodes,
+    lubridate,
+    sf,
+    raster,
+    lwgeom,
+    raster,
+    readr,
+    tidyr,
+    reshape2,
+    curl,
+    rworldmap,
+    DBI,
+    RSQLite,
+    geojsonsf
 Suggests: readxl,sf,sp,raster,rgdal,testthat
 Maintainer: Shaun Truelove <shauntruelove@jhu.edu>
 License: GPL (>=2)
