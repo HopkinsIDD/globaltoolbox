@@ -6,3 +6,5 @@
 man/*.Rd
 tmpdatabase.sqlite
 fakedatabase.sqlite
+/TAGS
+/tags

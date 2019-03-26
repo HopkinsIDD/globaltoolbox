@@ -39,7 +39,7 @@ get_location_metadata <- function(location=NULL,source=NULL,metadata_names=NULL,
   
   results <- dbGetQuery(con,query)
   metadata.frame <- bind_rows(lapply(results$metadata,process_single_metadata_frame)) 
-  results <- bind_cols(results[,-which(colnames(results)=='metadata')],metadata.frame)
+  results <- bind_cols(results[,-which(colnames(results) %in% c('standard','metadata'))],metadata.frame)
   return(results)
 }
 
