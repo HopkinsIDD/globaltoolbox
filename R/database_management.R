@@ -34,14 +34,14 @@ create_database <- function(dbname = default_database_filename(),...){
   con <- dbConnect(drv=SQLite(),dbname)
   
   ## The first table holds the locations and any metadata
-  # | Name       | Type               | Description                                     | Constraints             |
-  # |------------|--------------------|-------------------------------------------------|-------------------------|
-  # | id         | SERIAL PRIMARY KEY | A unique id per location                        | SERIAL                  |
-  # | name       | text               | A name for the location                         | NOT NULL                |
-  # | time_left  | date               | The first time the location exists during       |                         |
-  # | time_right | date               | The last time the location exists during        |                         |
-  # | standard   | boolean            | Is this the standardized name for this location | NOT NULL                |
-  # | metadata       | blob (json)        | this is a json object with any additional metadata  | NULL IFF (NOT standard) |
+  # | Name       | Type               | Description                                        | Constraints             |
+  # |------------|--------------------|----------------------------------------------------|-------------------------|
+  # | id         | SERIAL PRIMARY KEY | A unique id per location                           | SERIAL                  |
+  # | name       | text               | A name for the location                            | NOT NULL                |
+  # | time_left  | date               | The first time the location exists during          |                         |
+  # | time_right | date               | The last time the location exists during           |                         |
+  # | standard   | boolean            | Is this the standardized name for this location    | NOT NULL                |
+  # | metadata   | blob (json)        | this is a json object with any additional metadata | NULL IFF (NOT standard) |
   #' @importFrom DBI dbSendQuery dbClearResult
   dbClearResult(dbSendQuery(con, "CREATE TABLE IF NOT EXISTS locations(
     id INTEGER PRIMARY KEY,
@@ -208,14 +208,14 @@ database_add_descendent <- function(standardized_name,standardized_descendent_na
   #' @importFrom DBI dbConnect
   con <- dbConnect(drv=SQLite(),dbname)
   if(is.null(standardized_name)){
-    descendent_id = database_add_location(standardized_descendent_name,TRUE,metadata,dbname)
+    descendent_id = database_add_location(name=standardized_descendent_name,standard=TRUE,metadata=metadata,dbname=dbname)
     # descendent_id = database_lookup_location_by_name(name=standardized_descendent_name,source=NULL,standard=TRUE,dbname=dbname)
-    database_add_location_hierarchy(descendent_id,descendent_id,0)
+    database_add_location_hierarchy(descendent_id,descendent_id,0,dbname=dbname)
   } else {
     parent_id = database_lookup_location_by_name(name=standardized_name,source=NULL,dbname=dbname,standard=TRUE)
-    descendent_id = database_add_location(standardized_descendent_name,TRUE,metadata,dbname)
+    descendent_id = database_add_location(standardized_descendent_name,TRUE,metadata,dbname=dbname)
     # descendent_id = database_lookup_location_by_name(name=standardized_descendent_name,source=NULL,dbname=dbname,standard=TRUE)
-    database_add_location_hierarchy(descendent_id,descendent_id,0)
+    database_add_location_hierarchy(descendent_id,descendent_id,0,dbname=dbname)
     ## Add all ancestors of parent as ancestors here
     query = paste("INSERT INTO location_hierarchy(parent_id,descendent_id, depth) SELECT parent_id, '",descendent_id,"' as descendent_id,  depth+1 as depth FROM location_hierarchy WHERE descendent_id == '",parent_id,"'")
     #' @importFrom DBI dbSendQuery dbClearResult
