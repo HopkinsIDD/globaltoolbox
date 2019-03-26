@@ -104,6 +104,7 @@ database_add_location <- function(name, standard, metadata=NULL,dbname = default
     #' @importFrom jsonlite toJSON
     if(!is.null(metadata)){
         metadata = toJSON(metadata)
+        metadata = gsub("'","''",metadata)
         query = paste0("
       INSERT INTO locations (
         name, standard, metadata)

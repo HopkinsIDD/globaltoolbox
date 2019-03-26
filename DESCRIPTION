@@ -6,28 +6,17 @@ Authors@R: c(
             person("Joshua", "Kaminsky", email = "jkaminsky$jhu.edu", role = c("aut", "cre")))
 Description: globaltoolbox allows users to standardize location names, and use those standardized names to extract data about the location.
 Depends: 
-    R (>= 3.4),
-    magrittr,
-    dplyr
+    R (>= 3.4)
 Imports: 
-    countrycode,
-    stringdist,
-    stringr,
-    ISOcodes,
-    lubridate,
-    sf,
-    raster,
-    lwgeom,
-    raster,
-    readr,
-    tidyr,
-    reshape2,
-    curl,
-    rworldmap,
     DBI,
     RSQLite,
-    geojsonsf
-Suggests: readxl,sf,sp,raster,rgdal,testthat
+    countrycode,
+    dplyr,
+    geojsonsf,
+    jsonlite,
+    stringdist,
+    stringr
+Suggests: readxl,rgdal,testthat,sf
 Maintainer: Shaun Truelove <shauntruelove@jhu.edu>
 License: GPL (>=2)
 Encoding: UTF-8

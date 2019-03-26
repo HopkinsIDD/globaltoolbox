@@ -38,12 +38,15 @@ get_location_metadata <- function(location=NULL,source=NULL,metadata_names=NULL,
   }
   
   results <- dbGetQuery(con,query)
+  #' @importFrom dplyr bind_rows
   metadata.frame <- bind_rows(lapply(results$metadata,process_single_metadata_frame)) 
+  #' @importFrom dplyr bind_cols
   results <- bind_cols(results[,-which(colnames(results) %in% c('standard','metadata'))],metadata.frame)
   return(results)
 }
 
 process_single_metadata_frame <- function(frame){
   #' @importFrom jsonlite fromJSON
+  if(is.na(frame)){return(data.frame(missing=TRUE))}
   as.data.frame(fromJSON(frame))
 }

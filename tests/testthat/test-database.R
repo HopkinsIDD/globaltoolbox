@@ -26,6 +26,7 @@ test_that("Database low level interface works",{
   })
   expect_error({database_add_location(name = 'TST', standard = TRUE, metadata = list('test'=1))},NA)
   expect_error({database_add_location(name = 'TST2', standard = TRUE, metadata = list('test'=1,test2='foo'))},NA)
+  expect_error({database_add_location(name = 'TST3', standard = TRUE, metadata = list("test"="John's Data"))},NA)
   # Can't have multiple standard locations with the same name
   expect_error({database_add_location(name = 'TST', standard = TRUE, metadata = list('test'=1))})
   # Can't have standard location with no metadata
