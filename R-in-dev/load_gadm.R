@@ -63,3 +63,5 @@ for(ISO_A1 in all_countries){
 }
 
 get_location_metadata() %>%  dplyr::as_tibble() -> results
+
+load_

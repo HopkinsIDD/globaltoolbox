@@ -24,20 +24,27 @@ get_location_metadata <- function(location=NULL,source=NULL,metadata_names=NULL,
     if(is.na(parent_id)){
       parent_id = database_lookup_location_by_name(name=source,standard=TRUE,dbname=dbname,source=NULL)
     }
-    query = paste0(query," inner join location_hierarchy ON location_hierarchy.descendent_id = locations.id where parent_id ='",parent_id,"'")
+    query = paste0(query,
+      "INNER JOIN
+        location_hierarchy
+      ON
+        location_hierarchy.descendent_id = locations.id
+      WHERE
+        parent_id = {parent_id}")
     if((!is.null(location))){
-      query = paste0(query,' and')
+      query = paste0(query,' AND')
     }
   } else {
     if((!is.null(location))){
-      query = paste0(query,' where')
+      query = paste0(query,' WHERE')
     }
   }
   if(!is.null(location)){
-    query = paste0(query," name is '",location,"'")
+    query = paste0(query," name is {location}")
   }
   
-  results <- dbGetQuery(con,query)
+    #' @importFrom glue glue_sql
+  results <- dbGetQuery(con,glue_sql(.con=con,query))
   #' @importFrom dplyr bind_rows
   metadata.frame <- bind_rows(lapply(results$metadata,process_single_metadata_frame)) 
   #' @importFrom dplyr bind_cols
@@ -46,7 +53,11 @@ get_location_metadata <- function(location=NULL,source=NULL,metadata_names=NULL,
 }
 
 process_single_metadata_frame <- function(frame){
-  #' @importFrom jsonlite fromJSON
-  if(is.na(frame)){return(data.frame(missing=TRUE))}
-  as.data.frame(fromJSON(frame))
+    #' @importFrom jsonlite fromJSON
+    if(is.na(frame)){return(data.frame(missing=TRUE))}
+    frame = as.data.frame(fromJSON(frame))
+    #' @importFrom dplyr mutate_all
+    #' @importFrom dplyr funs
+    frame = mutate_all(frame,funs(as.character(.)))
+    return(frame)
 }
