@@ -93,8 +93,9 @@ create_database <- function(dbname = default_database_filename(),...){
     ## | location_id  | blob (json)        | this is a json object with any additional metadata | NOT NULL FOREIGN KEY REFERENCES locations(id) |
     #' @importFrom DBI dbSendQuery dbClearResult
     dbClearResult(dbSendQuery(con, "CREATE TABLE IF NOT EXISTS location_aliases(
-      ALIAS text PRIMARY KEY,
+      alias text,
       location_id integer NOT NULL,
+      PRIMARY KEY(alias,location_id)
       FOREIGN KEY(location_id) REFERENCES locations(id)
     );"))
     ## Populate with WHO regions
@@ -163,8 +164,6 @@ database_add_location_alias <- function(location_id, alias,dbname = default_data
     #' @importFrom RSQLite SQLite
     #' @importFrom DBI dbConnect
     con <- dbConnect(drv=SQLite(),dbname)
-    #' @importFrom geojsonsf sfc_geojson
-    geometry = sfc_geojson(geometry)
     query = "INSERT INTO location_aliases
       (location_id, alias)
     VALUES

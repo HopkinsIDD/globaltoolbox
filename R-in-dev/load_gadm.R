@@ -22,7 +22,7 @@ country_aliases <- read.csv(country_aliases.csv)
 all_countries <- levels(country_aliases$country_code)
 
 for(ISO_A1 in all_countries){
-  try({
+  #try({
       ISO_level = 0
       destination <- tempfile(fileext='.rds')
       website <- paste(
@@ -48,18 +48,22 @@ for(ISO_A1 in all_countries){
                                            dbname=dbname,
                                            metadata=metadata_frame,
                                            standardized_name=NULL,
-                                           standardized_descendent_name=country_data$ISO
+                                           standardized_descendent_name = country_data$ISO,
+                                           readable_descendent_name = country_data$NAME_ISO
                                        )
       for(alias_idx in which(grepl("NAME",colnames(country_data)))){
-          globaltoolbox:::database_add_alias(
+          alias=country_data[[alias_idx]][1]
+          location_id=location_id
+          browser()
+          globaltoolbox:::database_add_location_alias(
                               dbname=dbname,
-                              standardized_name=country_data$ISO,
-                              name=country_data[[alias_idx]][1]
+                              location_id=database_lookup_location_by_name(country_data$ISO),
+                              alias=alias
                           )
       }
       geometry = country_data$geometry
       unlink(destination)
-  })
+  #})
 }
 
 get_location_metadata() %>%  dplyr::as_tibble() -> results
