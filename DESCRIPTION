@@ -22,3 +22,10 @@ License: GPL (>=2)
 Encoding: UTF-8
 LazyData: true
 RoxygenNote: 6.1.1
+Collate: 
+    'database_management.R'
+    'get_country.R'
+    'get_location_data.R'
+    'get_region.R'
+    'standardize_name.R'
+    'user_database_interface.R'

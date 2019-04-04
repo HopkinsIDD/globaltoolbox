@@ -1,71 +1,208 @@
 rm(list=ls())
 devtools::document()
 if(require(globaltoolbox,quiet=T)){
-    unloadNamespace('pkg:globaltoolbox')
-    remove.packages("globaltoolbox")
+  unloadNamespace('pkg:globaltoolbox')
+  remove.packages("globaltoolbox")
 }
 rm(list=ls())
 install.packages('~/git/globaltoolbox',type='source',repos=NULL)
 library(globaltoolbox)
 library(lwgeom)
 library(sf)
-dbname=globaltoolbox:::default_database_filename()
+# dbname=globaltoolbox:::default_database_filename()
+dbname = "~/git/globaltoolbox/inst/extdata/globaltoolbox.sqlite"
+create_database()
 reset_database()
 create_database()
 
 country_aliases.csv <- system.file(
-    "extdata",
-    "country_aliases.csv",
-    package = "globaltoolbox"
+  "extdata",
+  "country_aliases.csv",
+  package = "globaltoolbox"
 )
 country_aliases <- read.csv(country_aliases.csv)
 all_countries <- levels(country_aliases$country_code)
 
+alias_ISO_columns = c(
+  "HASC",
+  "VARNAME",
+  "ISO",
+  "NAME",
+  "ID",
+  "NL_NAME"
+)
 for(ISO_A1 in all_countries){
-  #try({
-      ISO_level = 0
+  try({
+    ISO_level = 0
+    destination <- tempfile(fileext='.rds')
+    website <- paste(
+      "http://biogeo.ucdavis.edu/data/gadm2.8/rds/",
+      ISO_A1,
+      "_adm",
+      ISO_level,
+      ".rds",
+      sep=''
+    )
+    download.file(website,destination,mode='wb')
+    country_data <- st_as_sf(readRDS(destination))
+    country_data$type = 'ISO_A1'
+    country_data$depth = 0
+    metadata_frame <- as.data.frame(country_data)
+    metadata_frame <- metadata_frame[,colnames(metadata_frame) != 'geometry']
+    metadata_frame <- metadata_frame[,!grepl("NAME",colnames(metadata_frame))]
+    metadata_frame <- metadata_frame[,!(colnames(metadata_frame) %in% c("VALIDFR","VALIDTO"))]
+    descendent_id <- globaltoolbox:::database_add_descendent(
+                                       dbname=dbname,
+                                       metadata=metadata_frame,
+                                       standardized_name=NULL,
+                                       readable_descendent_name = country_data$ISO
+                                     )
+    for(alias_idx in
+      c(
+        which(colnames(country_data)=='ISO'),
+        which(grepl("NAME",colnames(country_data)))
+      )
+    ){
+      alias=country_data[[alias_idx]][1]
+      if(grepl("^\n \r$",alias)){next}
+      location_id=descendent_id
+      try({globaltoolbox:::database_add_location_alias(
+                             dbname=dbname,
+                             location_id=descendent_id,
+                             alias=alias
+                           )})
+    }
+    ## VALIDFR
+    ## VALIDTO
+    geometry = country_data$geometry
+    time_left = country_data$VALIDFR
+    time_right = country_data$VALIDTO
+    try({
+      database_add_location_geometry(
+        location_id=location_id,
+        time_left=time_left,
+        time_right=time_right,
+        geometry=geometry,
+        dbname=dbname
+      )
+    })
+    unlink(destination)
+  })
+
+  ## Lower level regions:
+  try({
+    while(TRUE){
+      ISO_level = ISO_level + 1
       destination <- tempfile(fileext='.rds')
       website <- paste(
-          "http://biogeo.ucdavis.edu/data/gadm2.8/rds/",
-          ISO_A1,
-          "_adm",
-          ISO_level,
-          ".rds",
-          sep=''
+        "http://biogeo.ucdavis.edu/data/gadm2.8/rds/",
+        ISO_A1,
+        "_adm",
+        ISO_level,
+        ".rds",
+        sep=''
       )
       download.file(website,destination,mode='wb')
-      #' @importFrom sf st_as_sf
       country_data <- st_as_sf(readRDS(destination))
-      # if(!all(suppressWarnings(st_is_valid(country_data)))){
-      #    #' @importFrom lwgeom st_make_valid
-      #    country_data <- st_make_valid(country_data)
-      # }
-      country_data$type = 'ISO_A1'
-      country_data$depth = 0
-      metadata_frame <- as.data.frame(country_data)
-      metadata_frame <- metadata_frame[,colnames(metadata_frame) != 'geometry']
-      descendent_id <- globaltoolbox:::database_add_descendent(
+      country_data$type = paste0('ISO_A2_L',ISO_level)
+      country_data$depth = ISO_level
+      for(row in 1:nrow(country_data)){
+        tmp_data = country_data[row,]
+        metadata_frame <- as.data.frame(tmp_data)
+        metadata_frame <- metadata_frame[,!(colnames(metadata_frame) %in% paste(alias_ISO_columns,ISO_level,sep='_'))]
+        metadata_frame <- metadata_frame[,colnames(metadata_frame) != 'geometry']
+        metadata_frame <- metadata_frame[,colnames(metadata_frame) != 'ISO']
+        for(i in 0:(ISO_level - 1)){
+          ## Remove data about containing countries
+          metadata_frame <- metadata_frame[,!grepl(paste0('_',i,'$'),colnames(metadata_frame))]
+        }
+        parent_name = tmp_data[[paste('NAME',ISO_level-1,sep='_')]]
+        parent_name = database_standardize_name(
+          name=parent_name,
+          source=NULL,
+          standard=FALSE
+        )
+        descendent_id <- globaltoolbox:::database_add_descendent(
                                            dbname=dbname,
                                            metadata=metadata_frame,
-                                           standardized_name=NULL,
-                                           standardized_descendent_name = country_data$ISO,
-                                           readable_descendent_name = country_data$NAME_ISO
-                                       )
-      for(alias_idx in which(grepl("NAME",colnames(country_data)))){
-          alias=country_data[[alias_idx]][1]
-          location_id=location_id
-          browser()
-          globaltoolbox:::database_add_location_alias(
-                              dbname=dbname,
-                              location_id=database_lookup_location_by_name(country_data$ISO),
-                              alias=alias
-                          )
+                                           standardized_name=parent_name,
+                                           readable_descendent_name = tmp_data[[paste('NAME',ISO_level,sep='_')]] 
+                                         )
+        tmp_alias_ISO_columns = paste(alias_ISO_columns[
+          paste(alias_ISO_columns,ISO_level,sep='_') %in%
+          colnames(country_data)
+        ],
+        ISO_level,
+        sep='_'
+        )
+        for(alias_name in tmp_alias_ISO_columns){
+          alias=tmp_data[[alias_name]][1]
+          if(is.na(alias)){next}
+          if(grepl("^\n \r$",alias)){next}
+          if(grepl("|",alias,fixed=T)){
+            alias = strsplit(alias,'|',fixed=T)[[1]]
+          }
+          for(this_alias in alias){
+            location_id=descendent_id
+            try({globaltoolbox:::database_add_location_alias(
+                                   dbname=dbname,
+                                   location_id=descendent_id,
+                                   alias=this_alias
+                                 )})
+          }
+        }
+        geometry=tmp_data$geometry
+        time_left = "1800-01-01"
+        time_right = "2020-01-01"
+        try({
+          database_add_location_geometry(
+            location_id=location_id,
+            time_left=time_left,
+            time_right=time_right,
+            geometry=geometry,
+            dbname=dbname
+          )
+        })
+        unlink(destination)
       }
-      geometry = country_data$geometry
-      unlink(destination)
-  #})
+    }
+  })
 }
 
-get_location_metadata() %>%  dplyr::as_tibble() -> results
+standardize_gadm_lhs_time <- function(x){
+  if(x == 'Present'){return(lubridate::now())}
+  if(x == 'Unknown'){return(lubridate::ymd('1900-01-01'))}
+  x = gsub('[^1234567890]','',x)
+  if(nchar(x) == 4){
+    return(lubridate::ymd(paste(x,'01','01')))
+  }
+  if(nchar(x) == 6){
+    return(lubridate::ymd(paste(substr(x,1,4),substr(x,5,6),'01')))
+  }
+  if(nchar(x) == 8){
+    return(lubridate::ymd(paste(substr(x,1,4),substr(x,5,6),substr(x,7,8))))
+  }
+  return(NA)
+}
 
-load_
+standardize_gadm_rhs_time <- function(x){
+  if(x == 'Present'){return(lubridate::now()+lubridate::years(1))}
+  if(x == 'Unknown'){return(lubridate::now()+lubridate::years(1))}
+  x = gsub('[^1234567890]','',x)
+  if(nchar(x) == 4){
+    return(lubridate::ymd(paste(x,'12','31')))
+  }
+  if(nchar(x) == 6){
+    return(lubridate::ymd(paste(substr(x,1,4),substr(x,5,6),'31')))
+  }
+  if(nchar(x) == 8){
+    return(lubridate::ymd(paste(substr(x,1,4),substr(x,5,6),substr(x,7,8))))
+  }
+  return(NA)
+}
+
+install.packages('.',type='source',repos=NULL)
+library(globaltoolbox)
+library(sf)
+ISO_A1='AFG'
+ISO_level=0
