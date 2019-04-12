@@ -110,6 +110,7 @@ create_database <- function(dbname = default_database_filename(),...){
 
 #' @description Wrapper for the sql code to create a location.  This function should not be called directly in most circumstances.  See database_add_descendent and database_add_alias instead.
 database_add_location <- function(name, readable_name,metadata=NULL,dbname = default_database_filename()){
+  if(is.numeric(name)){stop("This should not happen")}
   #' @importFrom RSQLite SQLite
   #' @importFrom DBI dbConnect
   con <- dbConnect(drv=SQLite(),dbname)
@@ -228,11 +229,12 @@ database_standardize_name <- function(
 
   if(length(rc$name) != 1){
     if(length(rc$name) > 1){
-      tmp = sapply(rc$name,get_location_metadata,dbname=dbname)
-      tmp2 = (tmp['depth',] == depth)
+      tmp = sapply(rc$name,function(x){return(get_location_metadata(x,dbname=dbname)$depth)})
+      tmp2 = (tmp == depth)
       tmp2[is.na(tmp2)] = FALSE
       tmp2 = which(tmp2)
       if(length(tmp2) == 1){
+        browser()
         return(rc$name[tmp2])
       }
       browser()
