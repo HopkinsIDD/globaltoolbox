@@ -2,12 +2,13 @@ default_database_filename = function(){
   system.file("extdata","globaltoolbox.sqlite",package = "globaltoolbox")
 }
 
-#' @export
+#' @name reset_database
 #' @description Setup the database for holding the location tree and shapefiles.
 #'   Requires postgres database already set up.  For instructions on how to set
 #'   up a postgres database, see https://www.r-bloggers.com/getting-started-with-postgresql-in-r
 #' @param dbname The name of the database to connect to
 #' @param ... Other parameters for RPostgreSQL::dbConnect
+#' @export
 reset_database <- function(dbname = default_database_filename()){
   ## Create Tables
   
@@ -21,17 +22,18 @@ reset_database <- function(dbname = default_database_filename()){
   dbClearResult(dbSendQuery(con, "DROP TABLE location_geometries"))
 }
 
-#' @export
+#' @name create_database
 #' @description Setup the database for holding the location tree and shapefiles.
 #'   Requires postgres database already set up.  For instructions on how to set
 #'   up a postgres database, see https://www.r-bloggers.com/getting-started-with-postgresql-in-r
 #' @param dbname The name of the database to connect to
 #' @param ... Other parameters for RPostgreSQL::dbConnect
+#' @importFrom RSQLite SQLite
+#' @importFrom DBI dbConnect
+#' @export
 create_database <- function(dbname = default_database_filename(),...){
   ## Create Tables
 
-  #' @importFrom RSQLite SQLite
-  #' @importFrom DBI dbConnect
   con <- dbConnect(drv=SQLite(),dbname)
   
   ## The first table holds the locations and any metadata
@@ -108,27 +110,40 @@ create_database <- function(dbname = default_database_filename(),...){
   return()
 }
 
+#' @name database_add_location
+#' @title database_add_location
 #' @description Wrapper for the sql code to create a location.  This function should not be called directly in most circumstances.  See database_add_descendent and database_add_alias instead.
+#' @param name location name to add
+#' @param readable_name common readable name for the location
+#' @param metadata Additional data that may be useful to identify the location name
+#' @param dbname database name to put location information.
+#' @return standardized database code which can be used to identify other data
+#' @importFrom RSQLite SQLite
+#' @importFrom DBI dbConnect
+#' @importFrom jsonlite toJSON
+#' @importFrom DBI dbGetQuery dbClearResult
+#' @importFrom glue glue_sql
+#' @export
 database_add_location <- function(name, readable_name,metadata=NULL,dbname = default_database_filename()){
   if(is.numeric(name)){stop("This should not happen")}
-  #' @importFrom RSQLite SQLite
   #' @importFrom DBI dbConnect
   con <- dbConnect(drv=SQLite(),dbname)
-  #' @importFrom jsonlite toJSON
   metadata <- as.character(toJSON(metadata))
   query <- "INSERT INTO locations
         (name,readable_name,metadata)
       VALUES
         ({name},{readable_name},{metadata})"
-  #' @importFrom DBI dbGetQuery dbClearResult
-  #' @importFrom glue glue_sql
+
   dbClearResult(dbSendQuery(con,glue_sql(.con=con,query)))
                                         # dbClearResult(dbSendQuery(con, query))
   rc <- dbGetQuery(con, 'SELECT DISTINCT last_insert_rowid() FROM locations')
   return(return(rc))
 }
 
+
+#' @name database_add_location_hierarchy
 #' @description Wrapper for the sql code to create a relationship in the location hierarchy.  This function should not be called directly in most circumstances.  See database_add_descendent and database_add_alias instead.
+#' @export
 database_add_location_hierarchy <- function(parent_id, descendent_id,depth,dbname = default_database_filename()){
   #' @importFrom RSQLite SQLite
   #' @importFrom DBI dbConnect
@@ -143,7 +158,9 @@ database_add_location_hierarchy <- function(parent_id, descendent_id,depth,dbnam
   return()
 }
 
+#' @name database_add_location_geometry
 #' @description Wrapper for the sql code to create a geometry associated with a location at a time period.
+#' @export
 database_add_location_geometry <- function(location_id, time_left, time_right, geometry,dbname = default_database_filename()){
   #' @importFrom RSQLite SQLite
   #' @importFrom DBI dbConnect
@@ -160,7 +177,9 @@ database_add_location_geometry <- function(location_id, time_left, time_right, g
   return()
 }
 
+#' @name database_add_location_alias
 #' @description Wrapper for the sql code to create an alias for a location.
+#' @export
 database_add_location_alias <- function(location_id, alias,dbname = default_database_filename()){
   #' @importFrom RSQLite SQLite
   #' @importFrom DBI dbConnect
@@ -175,7 +194,11 @@ database_add_location_alias <- function(location_id, alias,dbname = default_data
   return()
 }
 
-#' @export
+
+
+
+#' @name database_standardize_name
+#' @title database_standardize_name
 #' @description Get the id of a location by looking up it's name.
 #' @param name The name of the location to search for
 #' @param source A standardized location name or id number.  If not NULL, the search will be limited to locations within the source
@@ -184,6 +207,7 @@ database_add_location_alias <- function(location_id, alias,dbname = default_data
 #' @importFrom RSQLite SQLite
 #' @importFrom DBI dbConnect
 #' @importFrom glue glue_sql
+#' @export
 database_standardize_name <- function(
   name,
   source=NULL,
@@ -244,6 +268,12 @@ database_standardize_name <- function(
   return(rc$name)
 }
 
+
+
+#' @name get_database_id_from_name
+#' @title get_database_id_from_name
+#' @description Get the id of a location by looking up it's name.
+#' @export
 get_database_id_from_name <- function(name,dbname = default_database_filename()){
   con <- dbConnect(drv=SQLite(),dbname)
   query = "SELECT

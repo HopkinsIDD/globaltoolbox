@@ -362,15 +362,8 @@ get_common_name_local <- function(location, scope=NULL, metadata,
   return(metadata$name[match(loc_ids, metadata$id)])
 
 }
-
-
-
-
-# #' @import from readr read_csv
 # metadata <- read_csv("data-raw/bangladesh_locations.csv") # From GADM
 # standardize_name_local(location, scope="BGD::Barisal", metadata, type="district")
 # get_common_name_local(location, scope="BGD::Barisal", metadata, type="district")
-# standardize_name_local(location="Barisal", scope="BGD", metadata, type="division")
-# get_common_name_local(location="Barrrisl", scope="BGD", metadata, type="division")
 
 
