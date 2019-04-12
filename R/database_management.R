@@ -234,9 +234,6 @@ database_standardize_name <- function(
     query = paste(query,'AND alias is name')
   }
   if(is.null(source)){
-    if(is.na(depth)){
-      depth = 0
-    }
   } else {
     parent_id = as.numeric(source)
     if(is.na(parent_id)){
@@ -244,24 +241,28 @@ database_standardize_name <- function(
     }
     query = paste(query,'AND parent_id = {parent_id}')
   }
-  ## if(!is.na(depth)){
-  ##   query = paste(query,'AND depth = {depth}')
-  ## }
   rc <- dbGetQuery(con,glue_sql(.con=con,query))
   #' @importFrom dplyr filter
   rc <- filter(rc,!duplicated(name))
 
+  if(!is.na(depth)){
+    tmp = sapply(rc$name,function(x){return(get_location_metadata(x,dbname=dbname)$depth)})
+    tmp2 = (tmp == depth)
+    tmp2[is.na(tmp2)] = FALSE
+    tmp2 = which(tmp2)
+    rc = rc[tmp2,,drop=FALSE]
+  }
   if(length(rc$name) != 1){
     if(length(rc$name) > 1){
-      tmp = sapply(rc$name,function(x){return(get_location_metadata(x,dbname=dbname)$depth)})
-      tmp2 = (tmp == depth)
+      tmp = sapply(rc$name,function(x){return(get_location_metadata(x,dbname=dbname)$readable_name)})
+      tmp2 = (tmp == name)
       tmp2[is.na(tmp2)] = FALSE
       tmp2 = which(tmp2)
-      if(length(tmp2) == 1){
-        return(rc$name[tmp2])
-      }
+      rc = rc[tmp2,,drop=FALSE]
     }
-    stop(paste("Ambiguous location",name,"has",nrow(rc),"location_ids"))
+    if(length(rc$name) != 1){
+      stop(paste("Ambiguous location",name,"has",nrow(rc),"location_ids"))
+    }
   }
   return(rc$name)
 }

@@ -18,7 +18,7 @@
 #' @importFrom stringr str_replace_all
 #' @import dplyr
 #' @export
-standardize_name <- function(location, scope, metadata, dbname=NULL, ...){
+standardize_name <- function(location, scope, metadata, dbname=NULL, strict_scope=TRUE, ...){
   
   ## # TEMPORARY -- draw from country_names and country_codes data
   ## data('country_names',package='globaltoolbox')
@@ -31,7 +31,12 @@ standardize_name <- function(location, scope, metadata, dbname=NULL, ...){
     dbname <- default_database_filename()
   }
   ## limit database and alias_database to scope and metadata
-  db_scoped <- get_location_metadata(source=scope, dbname=dbname, aliases=TRUE)
+  db_scoped <- get_location_metadata(
+    source=scope,
+    dbname=dbname,
+    aliases=TRUE,
+    strict_scope=strict_scope
+  scope)
 
   try({
     rc <- database_standardize_name(location,scope,dbname=dbname)

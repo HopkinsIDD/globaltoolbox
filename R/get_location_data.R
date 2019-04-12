@@ -19,7 +19,8 @@ get_location_metadata <- function(
   source=NULL,
   metadata_names=NULL,
   dbname = default_database_filename(),
-  aliases=TRUE
+  aliases=TRUE,
+  strict_scope=TRUE
 ){
   #' @importFrom RSQLite SQLite
   #' @importFrom DBI dbConnect
@@ -54,6 +55,9 @@ get_location_metadata <- function(
       parent_id = get_database_id_from_name(name=source,dbname=dbname)
     }
     query = paste(query,'AND parent_id = {parent_id}')
+    if(strict_scope){
+      query = paste(query,'AND depth > 0')
+    }
   }
   #' @importFrom glue glue_sql
   results <- dbGetQuery(con,glue_sql(.con=con,query))
