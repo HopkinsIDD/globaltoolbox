@@ -41,7 +41,7 @@ get_location_metadata <- function(
     WHERE
       1=1"
    if(!is.null(location)){
-      "AND alias is {location}"
+      query = paste(query,"AND alias is {location}")
    }
   if(!aliases){
     query = paste(query,'AND alias is name')
@@ -57,6 +57,8 @@ get_location_metadata <- function(
   }
   #' @importFrom glue glue_sql
   results <- dbGetQuery(con,glue_sql(.con=con,query))
+  results$depth_from_source = results$depth
+  results$depth = NULL
   metadata = lapply(results$metadata,process_single_metadata_frame)
   #' @importFrom dplyr bind_rows
   metadata.frame <- bind_rows(lapply(results$metadata,process_single_metadata_frame)) 

@@ -36,7 +36,7 @@ standardize_name <- function(location, scope, metadata, dbname=NULL, ...){
   try({
     rc <- database_standardize_name(location,scope,dbname=dbname)
     if(length(rc) == 1){return(rc)}
-  })
+  },silent=T)
   
   
   
@@ -56,6 +56,9 @@ standardize_name <- function(location, scope, metadata, dbname=NULL, ...){
                      match_names, 
                      names_b_data = names_b_data, 
                      return_match_score = FALSE)
+  if(is.na(matches_)){
+    return(NA)
+  }
   
   ## NOTE: As currently implemented, we are not restricting the scope or metadata for each location.
   
@@ -363,10 +366,11 @@ get_common_name_local <- function(location, scope=NULL, metadata,
 
 
 
-metadata <- read_csv("data-raw/bangladesh_locations.csv") # From GADM
+# #' @import from readr read_csv
+# metadata <- read_csv("data-raw/bangladesh_locations.csv") # From GADM
 # standardize_name_local(location, scope="BGD::Barisal", metadata, type="district")
 # get_common_name_local(location, scope="BGD::Barisal", metadata, type="district")
-standardize_name_local(location="Barisal", scope="BGD", metadata, type="division")
-get_common_name_local(location="Barrrisl", scope="BGD", metadata, type="division")
+# standardize_name_local(location="Barisal", scope="BGD", metadata, type="division")
+# get_common_name_local(location="Barrrisl", scope="BGD", metadata, type="division")
 
 

@@ -33,6 +33,11 @@ database_add_descendent <- function(
     metadata=metadata,dbname=dbname
   )
   database_add_location_hierarchy(descendent_id,descendent_id,0,dbname=dbname)
+  database_add_location_alias(
+    location_id=descendent_id,
+    alias=standardized_descendent_name,
+    dbname=dbname
+  )
   if(!is.null(standardized_name)){
     ## Add all ancestors of parent as ancestors here
     query = "INSERT INTO location_hierarchy
