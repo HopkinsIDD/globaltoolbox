@@ -59,8 +59,11 @@ standardize_name <- function(location, scope, metadata, dbname=NULL, ...){
   
   ## NOTE: As currently implemented, we are not restricting the scope or metadata for each location.
   
-  return(db_scoped$name[matches_])
+  return(db_scoped$id[matches_])
 }
+
+
+
 
 #' @name match_names
 #' @title match_names
@@ -113,9 +116,9 @@ match_names <- function(name_a, names_b_data,
   
   best_ <- NULL
   if (any(dists$osa<=1)){  # OSA less than 1 is highly likely a match
-    best_ <- which.min(dists$score_sums)
+    best_ <- which(dists$score_sums==min(dists$score_sums))
   } else if (any(dists$jw<=.1)){
-    best_ <- which.min(dists$score_sums)
+    best_ <- which(dists$score_sums==min(dists$score_sums))
   } else if (any(dists$osa<=3 & dists$jw<=0.31 & dists$soundex==0)){
     best_ <- which(dists$osa<=3 & dists$jw<=0.31 & dists$soundex==0)
   } 
@@ -129,18 +132,20 @@ match_names <- function(name_a, names_b_data,
   
   ## If more than 1 meeting the criteria for best match, first check if they are the same,
   ## otherwise, return all
-  if (length(best_>1)){
+  if (length(best_)>1){
     dists$alias_ind <- 1:nrow(dists)
     dists_best <- dists[best_,] 
     dists_best <- dists_best[order(dists_best$score_sums),] # Order by score sum
-    dists_best <- dists_best[!duplicated(dists_best$ISO3),] # remove duplicate ISO3s
+    dists_best <- dists_best[!duplicated(dists_best$id),] # remove duplicate ids
     
     ## if still more than 1 best match, return NA or the distance matrix
-    if (nrow(dists_best>1)){
+    if (nrow(dists_best)>1){
       if (return_match_scores){
         return(dists_best)
       }
-      ## if only 1 best, replace best_ with index
+      return(NA)
+    
+    ## if only 1 best, replace best_ with index
     } else {
       best_ <- as.integer(dists_best$alias_ind)
     }
@@ -259,8 +264,109 @@ create_standardized_name <- function(name, parent=NA, check_aliases=FALSE, dbnam
 
 
 
-## TO DO !!!!!!!!!!!  #####
-## get_common_name()
-## # readable name
+
+
+
+
+
+
+
+#' @name standardize_name_local
+#' @title standardize_name_local
+#' @description Using various methods, matches the inputted location name to a location and returns a standardized code
+#' for that location
+#' @param location location name to match
+#' @param scope a known standardized location scope, if available. For a city, this would be the code for the country 
+#' where it is located
+#' @param metadata Additional data that may be useful to identify the location name
+#' @param database database to pull location information from. If NULL, it will pull from the database included in the package.
+#' @param return_match_score logical, whether to return the matching score. Score reported on 0-1 scale, with 1 being a perfect match.
+#' @return standardized database code which can be used to identify other data
+#' @importFrom stringdist stringdist
+#' @importFrom stringr str_replace_all
+#' @import dplyr
+#' @export
+standardize_name_local <- function(location, scope=NULL, metadata, 
+                                   return_match_scores=FALSE,
+                                   ...){
+  
+  ## # TEMPORARY -- draw from country_names and country_codes data
+  ## data('country_names',package='globaltoolbox')
+  ## alias_database <- country_names %>% mutate(id = ISO3)
+  ## # data('country_codes',package='globaltoolbox')
+  ## # database_tmp <- country_codes
+
+  ## limit database and alias_database to scope and metadata
+  db_scoped <- metadata
+  if (!is.null(scope)){
+    db_scoped <- db_scoped %>% filter(grepl(scope, id) & id!=scope)
+  }
+  if (exists("type")){
+    db_scoped <- db_scoped[db_scoped$type==type,]
+  }
+  
+  # try({
+  #   rc <- database_standardize_name(location,scope,dbname=dbname)
+  #   if(length(rc) == 1){return(rc)}
+  # })
+  
+  ## Clean Locations and aliases to match
+  ## - cleaning here will be faster than for each match (maybe?)
+  location_clean <- tolower(iconv(location, from = 'UTF-8', to = 'ASCII//TRANSLIT'))
+  location_clean <- str_replace_all(location_clean, "[[:punct:]]", "") # remove all punctuation
+  names_b_data = db_scoped %>% select(id, name)
+  names_b_data$name = tolower(iconv(names_b_data$name, from = 'UTF-8', to = 'ASCII//TRANSLIT'))
+  names_b_data$name <- str_replace_all(names_b_data$name, "[[:punct:]]", "") # remove all punctuation
+  
+  ## Run the "match_names" function to match. 
+  ##  - This returns a row index pertaining to names_b_data.
+  ##  - Any location not finding a best match will return NA
+  ##  - Any location finding multible different best matches will return NA
+  matches_ <- sapply(location_clean, 
+                     match_names, 
+                     names_b_data = names_b_data,
+                     return_match_scores=return_match_scores,
+                     clean_a=FALSE, clean_b=FALSE)
+  
+  ## NOTE: As currently implemented, we are not restricting the scope or metadata for each location.
+  
+  return(db_scoped$id[matches_])
+}
+
+
+
+#' @name get_common_name_local
+#' @title get_common_name_local
+#' @description Wrapper function for `standardize_name` returns a standardized common name
+#' for a location
+#' @param location location name to match
+#' @param scope a known standardized location scope, if available. For a city, this would be the code for the country 
+#' where it is located
+#' @param metadata Additional data that may be useful to identify the location name
+#' @param database database to pull location information from. If NULL, it will pull from the database included in the package.
+#' @param return_match_score logical, whether to return the matching score. Score reported on 0-1 scale, with 1 being a perfect match.
+#' @return standardized database code which can be used to identify other data
+#' @importFrom stringdist stringdist
+#' @importFrom stringr str_replace_all
+#' @import dplyr
+#' @export
+get_common_name_local <- function(location, scope=NULL, metadata, 
+                                  return_match_scores=FALSE, ...){
+  
+  loc_ids <- standardize_name_local(location=location, scope=scope, metadata=metadata, 
+                         return_match_scores=return_match_scores, ...)
+  
+  return(metadata$name[match(loc_ids, metadata$id)])
+
+}
+
+
+
+
+metadata <- read_csv("data-raw/bangladesh_locations.csv") # From GADM
+# standardize_name_local(location, scope="BGD::Barisal", metadata, type="district")
+# get_common_name_local(location, scope="BGD::Barisal", metadata, type="district")
+standardize_name_local(location="Barisal", scope="BGD", metadata, type="division")
+get_common_name_local(location="Barrrisl", scope="BGD", metadata, type="division")
 
 
