@@ -62,7 +62,7 @@ standardize_name <- function(location, scope, metadata, dbname=NULL, ...){
   
   ## NOTE: As currently implemented, we are not restricting the scope or metadata for each location.
   
-  return(db_scoped$id[matches_])
+  return(db_scoped$name[matches_])
 }
 
 
@@ -333,7 +333,7 @@ standardize_name_local <- function(location, scope=NULL, metadata,
   
   ## NOTE: As currently implemented, we are not restricting the scope or metadata for each location.
   
-  return(db_scoped$id[matches_])
+  return(db_scoped$name[matches_])
 }
 
 

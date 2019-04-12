@@ -258,10 +258,8 @@ database_standardize_name <- function(
       tmp2[is.na(tmp2)] = FALSE
       tmp2 = which(tmp2)
       if(length(tmp2) == 1){
-        browser()
         return(rc$name[tmp2])
       }
-      browser()
     }
     stop(paste("Ambiguous location",name,"has",nrow(rc),"location_ids"))
   }
