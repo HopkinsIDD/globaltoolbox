@@ -36,7 +36,7 @@ standardize_name <- function(location, scope, metadata, dbname=NULL, strict_scop
     dbname=dbname,
     aliases=TRUE,
     strict_scope=strict_scope
-  scope)
+  )
 
   try({
     rc <- database_standardize_name(location,scope,dbname=dbname)
