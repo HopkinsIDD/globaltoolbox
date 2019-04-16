@@ -1,17 +1,20 @@
+
+#' @name database_add_descendent
 #' @include database_management.R standardize_name.R
-
-
-#' @export
 #' @description Add a new location to the database as a descendent of another region.
 #' @param redable_descendent_name The human readable name of the location to add.
 #' @param standardized_name The standardized name of the parent of the location to add.
 #' @param dbname The name of the database.  Defaults to the database associated with the package
 #' @description Add a new location as a descendent of another location and update the location hierarchy.
+#' @importFrom RSQLite SQLite
+#' @importFrom DBI dbConnect
+#' @export
 database_add_descendent <- function(
   standardized_name,
   readable_descendent_name,
-  metadata,dbname=default_database_filename()
+  metadata, dbname=default_database_filename()
 ){
+  
   standardized_descendent_name = create_standardized_name(
     name=readable_descendent_name,
     parent=standardized_name,
@@ -19,11 +22,8 @@ database_add_descendent <- function(
     dbname=dbname
   )
 
-  #' @importFrom RSQLite SQLite
-  #' @importFrom DBI dbConnect
   con <- dbConnect(drv=SQLite(),dbname)
   if(!is.null(standardized_name)){
-
     parent_id = get_database_id_from_name(name=standardized_name,dbname=dbname)
   }
   

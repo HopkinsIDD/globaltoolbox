@@ -34,8 +34,12 @@ alias_ISO_columns = c(
   "NL_NAME"
 )
 
+
+
 for(ISO_A1 in all_countries){
   destination <- tempfile(fileext='.rds')
+  
+  # Download GADM for the country
   try({
     ISO_level = 0
     website <- paste(
@@ -48,6 +52,8 @@ for(ISO_A1 in all_countries){
     )
     download.file(website,destination,mode='wb')
   },silent=T)
+  
+  # if GADM file downloaded correctly process it
   if(file.exists(destination)){
     country_data <- st_as_sf(readRDS(destination))
     country_data$type = 'ISO_A1'
@@ -202,6 +208,8 @@ for(ISO_A1 in all_countries){
     }
   }
 }
+
+
 
 standardize_gadm_lhs_time <- function(x){
   if(x == 'Present'){return(lubridate::now())}

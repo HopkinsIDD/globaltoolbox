@@ -1,11 +1,12 @@
+#' @name get_location_metadata
 #' @include database_management.R
-#' @export
 #' @description Pull metadata associated with a particular location or set of locations
 #' @param location The name of the location to search for.  If there are multiple matches, all will be returned.  If this is NULL, every location below the source will be returned.
 #' @param source A location to only search within.  Only locations contained within this location will be searched.  If this is NULL, every location will be searched.
 #' @param metadata_names The column names of metadata to pull.  The default is to pull all metadata.
 #' @param aliases Whether or not to also pull metadata for aliases of locations.
 #' @param dbname The name of the database to connect to
+#' @export
 ## get_location_metadata(location)
 ## get_location_metadata(location,metadata)
 ## get_location_metadata(location,database)
@@ -78,6 +79,8 @@ get_location_metadata <- function(
   }
   return(results)
 }
+
+
 
 process_single_metadata_frame <- function(frame){
     #' @importFrom jsonlite fromJSON

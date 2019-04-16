@@ -161,6 +161,10 @@ match_names <- function(name_a, names_b_data,
   return(best_)
 }
 
+
+
+
+
 #' @name create_standardized_name
 #' @title create_standardized_name
 #' @description Using the stringdist package, matches the inputted location name to a location and returns an index
@@ -188,14 +192,20 @@ create_standardized_name <- function(name, parent=NA, check_aliases=FALSE, dbnam
   if (is.null(dbname)){
     dbname <- default_database_filename()
   }
-  ## db <- get_location_metadata(dbname=dbname)
 
-  
   ## Standardize the location name
   name <- tolower(iconv(name, from = 'UTF-8', to = 'ASCII//TRANSLIT'))
   name <- str_replace_all(name, "[[:punct:]]", "") # remove all punctuation
   name <- str_to_title(name)
   name <- str_replace_all(name, " ", "-") # Replace space with dash
+  
+  ## Check for fully standardized parent in database (only full names with all levels separated by "::" )
+  std_parent_name = database_standardize_name(
+    name=parent,
+    dbname=dbname,
+    standard=TRUE,
+    source=NULL
+  )
   
   ## Check for parent in database (check aliases if appropriate)
   std_parent_name = database_standardize_name(
