@@ -18,7 +18,7 @@
 #' @importFrom stringr str_replace_all
 #' @import dplyr
 #' @export
-standardize_name <- function(location, scope, metadata, dbname=NULL, ...){
+standardize_name <- function(location, scope, metadata, dbname=NULL, strict_scope=TRUE, ...){
   
   ## # TEMPORARY -- draw from country_names and country_codes data
   ## data('country_names',package='globaltoolbox')
@@ -31,12 +31,17 @@ standardize_name <- function(location, scope, metadata, dbname=NULL, ...){
     dbname <- default_database_filename()
   }
   ## limit database and alias_database to scope and metadata
-  db_scoped <- get_location_metadata(source=scope, dbname=dbname, aliases=TRUE)
+  db_scoped <- get_location_metadata(
+    source=scope,
+    dbname=dbname,
+    aliases=TRUE,
+    strict_scope=strict_scope
+  scope)
 
   try({
     rc <- database_standardize_name(location,scope,dbname=dbname)
     if(length(rc) == 1){return(rc)}
-  })
+  },silent=T)
   
   
   
@@ -56,10 +61,13 @@ standardize_name <- function(location, scope, metadata, dbname=NULL, ...){
                      match_names, 
                      names_b_data = names_b_data, 
                      return_match_score = FALSE)
+  if(is.na(matches_)){
+    return(NA)
+  }
   
   ## NOTE: As currently implemented, we are not restricting the scope or metadata for each location.
   
-  return(db_scoped$id[matches_])
+  return(db_scoped$name[matches_])
 }
 
 
@@ -330,7 +338,7 @@ standardize_name_local <- function(location, scope=NULL, metadata,
   
   ## NOTE: As currently implemented, we are not restricting the scope or metadata for each location.
   
-  return(db_scoped$id[matches_])
+  return(db_scoped$name[matches_])
 }
 
 
@@ -359,14 +367,8 @@ get_common_name_local <- function(location, scope=NULL, metadata,
   return(metadata$name[match(loc_ids, metadata$id)])
 
 }
-
-
-# 
-# 
 # metadata <- read_csv("data-raw/bangladesh_locations.csv") # From GADM
-# # standardize_name_local(location, scope="BGD::Barisal", metadata, type="district")
-# # get_common_name_local(location, scope="BGD::Barisal", metadata, type="district")
-# standardize_name_local(location="Barisal", scope="BGD", metadata, type="division")
-# get_common_name_local(location="Barrrisl", scope="BGD", metadata, type="division")
+# standardize_name_local(location, scope="BGD::Barisal", metadata, type="district")
+# get_common_name_local(location, scope="BGD::Barisal", metadata, type="district")
 
 

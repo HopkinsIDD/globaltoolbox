@@ -19,7 +19,8 @@ get_location_metadata <- function(
   source=NULL,
   metadata_names=NULL,
   dbname = default_database_filename(),
-  aliases=TRUE
+  aliases=TRUE,
+  strict_scope=TRUE
 ){
   #' @importFrom RSQLite SQLite
   #' @importFrom DBI dbConnect
@@ -41,7 +42,7 @@ get_location_metadata <- function(
     WHERE
       1=1"
    if(!is.null(location)){
-      "AND alias is {location}"
+      query = paste(query,"AND alias is {location}")
    }
   if(!aliases){
     query = paste(query,'AND alias is name')
@@ -54,9 +55,14 @@ get_location_metadata <- function(
       parent_id = get_database_id_from_name(name=source,dbname=dbname)
     }
     query = paste(query,'AND parent_id = {parent_id}')
+    if(strict_scope){
+      query = paste(query,'AND depth > 0')
+    }
   }
   #' @importFrom glue glue_sql
   results <- dbGetQuery(con,glue_sql(.con=con,query))
+  results$depth_from_source = results$depth
+  results$depth = NULL
   metadata = lapply(results$metadata,process_single_metadata_frame)
   #' @importFrom dplyr bind_rows
   metadata.frame <- bind_rows(lapply(results$metadata,process_single_metadata_frame)) 

@@ -1,3 +1,5 @@
+options(warn=1)
+options(error=recover)
 rm(list=ls())
 devtools::document()
 if(require(globaltoolbox,quiet=T)){
@@ -31,10 +33,11 @@ alias_ISO_columns = c(
   "ID",
   "NL_NAME"
 )
+
 for(ISO_A1 in all_countries){
+  destination <- tempfile(fileext='.rds')
   try({
     ISO_level = 0
-    destination <- tempfile(fileext='.rds')
     website <- paste(
       "http://biogeo.ucdavis.edu/data/gadm2.8/rds/",
       ISO_A1,
@@ -44,6 +47,8 @@ for(ISO_A1 in all_countries){
       sep=''
     )
     download.file(website,destination,mode='wb')
+  },silent=T)
+  if(file.exists(destination)){
     country_data <- st_as_sf(readRDS(destination))
     country_data$type = 'ISO_A1'
     country_data$depth = 0
@@ -52,11 +57,11 @@ for(ISO_A1 in all_countries){
     metadata_frame <- metadata_frame[,!grepl("NAME",colnames(metadata_frame))]
     metadata_frame <- metadata_frame[,!(colnames(metadata_frame) %in% c("VALIDFR","VALIDTO"))]
     descendent_id <- globaltoolbox:::database_add_descendent(
-                                       dbname=dbname,
-                                       metadata=metadata_frame,
-                                       standardized_name=NULL,
-                                       readable_descendent_name = country_data$ISO
-                                     )
+      dbname=dbname,
+      metadata=metadata_frame,
+      standardized_name=NULL,
+      readable_descendent_name = country_data$ISO
+    )
     for(alias_idx in
       c(
         which(colnames(country_data)=='ISO'),
@@ -66,18 +71,25 @@ for(ISO_A1 in all_countries){
       alias=country_data[[alias_idx]][1]
       if(grepl("^\n \r$",alias)){next}
       location_id=descendent_id
-      try({globaltoolbox:::database_add_location_alias(
+      tryCatch({globaltoolbox:::database_add_location_alias(
                              dbname=dbname,
                              location_id=descendent_id,
                              alias=alias
-                           )})
+                           )
+                             
+      },
+      error = function(e){
+        if(!(
+          grepl("UNIQUE constraint failed",e$message)
+        )){
+          stop("The only way creating an alias should fail is if the alias is already in the database")
+        }
+      })
     }
-    ## VALIDFR
-    ## VALIDTO
-    geometry = country_data$geometry
-    time_left = country_data$VALIDFR
-    time_right = country_data$VALIDTO
-    try({
+    tryCatch({
+      geometry = country_data$geometry
+      time_left = "1800-01-01"
+      time_right = "2020-01-01"
       database_add_location_geometry(
         location_id=location_id,
         time_left=time_left,
@@ -85,15 +97,18 @@ for(ISO_A1 in all_countries){
         geometry=geometry,
         dbname=dbname
       )
-    })
+    },
+    error = function(e){
+    },silent=T)
     unlink(destination)
-  })
+  }
 
   ## Lower level regions:
-  try({
-    while(TRUE){
+  toggle = TRUE
+  ISO_level = 0
+  while(toggle){
+    try({
       ISO_level = ISO_level + 1
-      destination <- tempfile(fileext='.rds')
       website <- paste(
         "http://biogeo.ucdavis.edu/data/gadm2.8/rds/",
         ISO_A1,
@@ -103,6 +118,8 @@ for(ISO_A1 in all_countries){
         sep=''
       )
       download.file(website,destination,mode='wb')
+    },silent=T)
+    if(file.exists(destination)){
       country_data <- st_as_sf(readRDS(destination))
       country_data$type = paste0('ISO_A2_L',ISO_level)
       country_data$depth = ISO_level
@@ -115,12 +132,14 @@ for(ISO_A1 in all_countries){
         for(i in 0:(ISO_level - 1)){
           ## Remove data about containing countries
           metadata_frame <- metadata_frame[,!grepl(paste0('_',i,'$'),colnames(metadata_frame))]
+          colnames(metadata_frame) = gsub(paste0('_',i,'$'),'',colnames(metadata_frame))
         }
         parent_name = tmp_data[[paste('NAME',ISO_level-1,sep='_')]]
         parent_name = database_standardize_name(
           name=parent_name,
           source=NULL,
-          standard=FALSE
+          standard=FALSE,
+          depth = ISO_level - 1
         )
         descendent_id <- globaltoolbox:::database_add_descendent(
                                            dbname=dbname,
@@ -144,17 +163,28 @@ for(ISO_A1 in all_countries){
           }
           for(this_alias in alias){
             location_id=descendent_id
-            try({globaltoolbox:::database_add_location_alias(
-                                   dbname=dbname,
-                                   location_id=descendent_id,
-                                   alias=this_alias
-                                 )})
+            tryCatch({globaltoolbox:::database_add_location_alias(
+                                        dbname=dbname,
+                                        location_id=descendent_id,
+                                        alias=this_alias
+                                      )
+            },
+            error = function(e){
+              if(!(
+                grepl("UNIQUE constraint failed",e$message)
+              )){
+                stop("The only way creating an alias should fail is if the alias is already in the database")
+              }
+            })
           }
         }
         geometry=tmp_data$geometry
         time_left = "1800-01-01"
         time_right = "2020-01-01"
-        try({
+        tryCatch({
+          geometry = country_data$geometry
+          time_left = "1800-01-01"
+          time_right = "2020-01-01"
           database_add_location_geometry(
             location_id=location_id,
             time_left=time_left,
@@ -162,11 +192,15 @@ for(ISO_A1 in all_countries){
             geometry=geometry,
             dbname=dbname
           )
-        })
+        },
+        error = function(e){
+        },silent=T)
         unlink(destination)
       }
+    } else {
+      toggle = FALSE
     }
-  })
+  }
 }
 
 standardize_gadm_lhs_time <- function(x){

@@ -125,8 +125,8 @@ create_database <- function(dbname = default_database_filename(),...){
 #' @importFrom DBI dbGetQuery dbClearResult
 #' @importFrom glue glue_sql
 #' @export
-database_add_location <- function(name, readable_name, metadata=NULL, dbname = default_database_filename()){
-
+database_add_location <- function(name, readable_name,metadata=NULL,dbname = default_database_filename()){
+  if(is.numeric(name)){stop("This should not happen")}
   #' @importFrom DBI dbConnect
   con <- dbConnect(drv=SQLite(),dbname)
   metadata <- as.character(toJSON(metadata))
@@ -217,7 +217,6 @@ database_standardize_name <- function(
   dbname = default_database_filename()
 ){
   con <- dbConnect(drv=SQLite(),dbname)
-  if(!is.na(depth)){warning("The depth argument has not been implemented yet.")}
   query = "SELECT
     name
   FROM
@@ -236,7 +235,6 @@ database_standardize_name <- function(
     query = paste(query,'AND alias is name')
   }
   if(is.null(source)){
-    query = paste(query,'AND depth = 0')
   } else {
     parent_id = as.numeric(source)
     if(is.na(parent_id)){
@@ -245,9 +243,27 @@ database_standardize_name <- function(
     query = paste(query,'AND parent_id = {parent_id}')
   }
   rc <- dbGetQuery(con,glue_sql(.con=con,query))
+  #' @importFrom dplyr filter
+  rc <- filter(rc,!duplicated(name))
 
+  if(!is.na(depth)){
+    tmp = sapply(rc$name,function(x){return(get_location_metadata(x,dbname=dbname)$depth)})
+    tmp2 = (tmp == depth)
+    tmp2[is.na(tmp2)] = FALSE
+    tmp2 = which(tmp2)
+    rc = rc[tmp2,,drop=FALSE]
+  }
   if(length(rc$name) != 1){
-    stop(paste("Ambiguous location",name,"has",nrow(rc),"location_ids"))
+    if(length(rc$name) > 1){
+      tmp = sapply(rc$name,function(x){return(get_location_metadata(x,dbname=dbname)$readable_name)})
+      tmp2 = (tmp == name)
+      tmp2[is.na(tmp2)] = FALSE
+      tmp2 = which(tmp2)
+      rc = rc[tmp2,,drop=FALSE]
+    }
+    if(length(rc$name) != 1){
+      stop(paste("Ambiguous location",name,"has",nrow(rc),"location_ids"))
+    }
   }
   return(rc$name)
 }
