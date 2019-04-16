@@ -43,6 +43,7 @@ create_database <- function(dbname = default_database_filename(),...){
   ## | name          | text               | A name for the location                            | NOT NULL    |
   ## | readable name | text               | A human readable name for the location             | NOT NULL    |
   ## | metadata      | blob (json)        | this is a json object with any additional metadata | NOT NULL    |
+  
   #' @importFrom DBI dbSendQuery dbClearResult
   dbClearResult(dbSendQuery(con, "CREATE TABLE IF NOT EXISTS locations(
       id INTEGER PRIMARY KEY,
