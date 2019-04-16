@@ -91,3 +91,35 @@ process_single_metadata_frame <- function(frame){
     frame = mutate_all(frame,funs(as.character(.)))
     return(frame)
 }
+
+get_all_aliases <- function(source,depth,dbname=default_database_filename()){
+  con <- dbConnect(drv=SQLite(),dbname)
+  query = "SELECT
+    name,alias,location_id
+  FROM
+    (locations
+      INNER JOIN
+    location_hierarchy
+      ON
+        location_hierarchy.descendent_id = location_id
+    ) INNER JOIN
+    location_aliases
+      ON
+      locations.id = location_aliases.location_id
+    WHERE
+      1=1"
+  if(is.null(source)){
+    query = paste(query,'AND depth = 0')
+  } else {
+    parent_id = as.numeric(source)
+    if(is.na(parent_id)){
+      parent_id = get_database_id_from_name(name=source,dbname=dbname)
+    }
+    query = paste(query,'AND parent_id = {parent_id}')
+    if(strict_scope){
+      query = paste(query,'AND depth > 0')
+    }
+  }
+  results <- dbGetQuery(con,glue_sql(.con=con,query))
+  return(results)
+}
