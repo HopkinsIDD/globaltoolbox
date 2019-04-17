@@ -203,6 +203,7 @@ database_add_location_alias <- function(location_id, alias,dbname = default_data
 #' @description Get the id of a location by looking up it's name.
 #' @param name The name of the location to search for
 #' @param source A standardized location name or id number.  If not NULL, the search will be limited to locations within the source
+#' @param standard Whether or not ...
 #' @param depth How deep under the source should the search extent. (Not yet implemented)
 #' @param dbname The name of the database.  Defaults to the database associated with the package
 #' @importFrom RSQLite SQLite
@@ -216,6 +217,7 @@ database_standardize_name <- function(
   depth=NA,
   dbname = default_database_filename()
 ){
+  
   con <- dbConnect(drv=SQLite(),dbname)
   query = "SELECT
     name
@@ -273,6 +275,8 @@ database_standardize_name <- function(
 #' @name get_database_id_from_name
 #' @title get_database_id_from_name
 #' @description Get the id of a location by looking up it's name.
+#' @param name Standardized name of a location
+#' @param dbname Name of the database. Defaults to default location.
 #' @export
 get_database_id_from_name <- function(name,dbname = default_database_filename()){
   con <- dbConnect(drv=SQLite(),dbname)

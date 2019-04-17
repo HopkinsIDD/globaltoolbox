@@ -18,7 +18,7 @@
 #' @importFrom stringr str_replace_all
 #' @import dplyr
 #' @export
-standardize_name <- function(location, scope, metadata, dbname=NULL, strict_scope=TRUE, ...){
+standardize_name <- function(location, scope=NULL, metadata, dbname=NULL, strict_scope=TRUE, ...){
   
   ## # TEMPORARY -- draw from country_names and country_codes data
   ## data('country_names',package='globaltoolbox')
@@ -38,11 +38,11 @@ standardize_name <- function(location, scope, metadata, dbname=NULL, strict_scop
     strict_scope=strict_scope
   )
 
-  try({
-    rc <- database_standardize_name(location,scope,dbname=dbname)
-    if(length(rc) == 1){return(rc)}
-  },silent=T)
-  
+  # why is this in here????
+  # try({
+  #   rc <- database_standardize_name(location,scope,dbname=dbname)
+  #   if(length(rc) == 1){return(rc)}
+  # },silent=T)
   
   
   ## Clean Locations and aliases to match
@@ -61,8 +61,28 @@ standardize_name <- function(location, scope, metadata, dbname=NULL, strict_scop
                      match_names, 
                      names_b_data = names_b_data, 
                      return_match_score = FALSE)
-  if(is.na(matches_)){
-    return(NA)
+  
+  # If no matches, try the readable_name
+  if (sum(is.na(matches_))>0){
+    names_b_data = db_scoped %>% select(id, name=readable_name)
+    names_b_data$name = tolower(iconv(names_b_data$name, from = 'UTF-8', to = 'ASCII//TRANSLIT'))
+    names_b_data$name <- str_replace_all(names_b_data$name, "[[:punct:]]", "") # remove all punctuation
+    
+    matches_[is.na(matches_)] <- sapply(location_clean[is.na(matches_)], 
+                                         match_names, 
+                                         names_b_data = names_b_data, 
+                                         return_match_score = FALSE)
+                    }
+  # If no matches, try the Aliases
+  if (sum(is.na(matches_))>0){
+    names_b_data = db_scoped %>% select(id, name=alias)
+    names_b_data$name = tolower(iconv(names_b_data$name, from = 'UTF-8', to = 'ASCII//TRANSLIT'))
+    names_b_data$name <- str_replace_all(names_b_data$name, "[[:punct:]]", "") # remove all punctuation
+    
+    matches_[is.na(matches_)] <- sapply(location_clean[is.na(matches_)], 
+                                        match_names, 
+                                        names_b_data = names_b_data, 
+                                        return_match_score = FALSE)
   }
   
   ## NOTE: As currently implemented, we are not restricting the scope or metadata for each location.
@@ -183,7 +203,7 @@ create_standardized_name <- function(name, parent=NA, check_aliases=FALSE, dbnam
     warning("This function does not currently handle creating standardized country names")
     return(name)
   }
-  if (is.na(parent)){
+  if (length(parent)==1 && is.na(parent)){
     return("Need to specify parent")
   }
   
@@ -200,63 +220,83 @@ create_standardized_name <- function(name, parent=NA, check_aliases=FALSE, dbnam
   name <- str_replace_all(name, " ", "-") # Replace space with dash
   
   ## Check for fully standardized parent in database (only full names with all levels separated by "::" )
-  std_parent_name = database_standardize_name(
-    name=parent,
-    dbname=dbname,
-    standard=TRUE,
-    source=NULL
+  # NEED TO VECTORIZE `database_standardize_name` function
+  std_parent_name = sapply(parent, function(x) tryCatch(database_standardize_name(name=x, 
+                                                           dbname=dbname,
+                                                          standard=TRUE,
+                                                          source=NULL), error=function(err) NA)
   )
+  parents_nonstd <- is.na(std_parent_name)
   
   ## Check for parent in database (check aliases if appropriate)
-  std_parent_name = database_standardize_name(
-    name=parent,
-    dbname=dbname,
-    standard=TRUE,
-    source=NULL
-  )
-
-  ## If we didn't find the parent, take more drastic measures
-  if(length(std_parent_name) == 0){
-    ## Check if parent is standardized, and if so, look up in database
-    if (grepl("::", parent)){
-      
-      parent_match <- which(tolower(db$name)==tolower(parent))
-      
-      if (length(parent_match)==1){
-        std_parent_name <- db$name[tolower(db$name)==tolower(parent)]
-        
-        ## if no matches, need to specify parent better
-      } else if (length(parent_match)>1){
-        return("Multiple parent matches. Please provide more specific parent.")
-        
-        ## if no match, need to check for incomplete parent name
-      } else if (length(parent_match)==0){
-        parent_possible_matches <- grep(tolower(parent), tolower(db$name))
-        if (length(parent_possible_matches==1)){
-          std_parent_name <- db$name[parent_possible_matches]
-          
-          ## If no match found, try to take only the last chunk after the final ::
-        } else if (length(parent_possible_matches==0)){
-          parent_ <- unlist(strsplit(parent, "::"))
-          parent_ <- parent_[length(parent_)]
-          std_parent_name <- standardize_name(location=parent_, dbname=dbname)
-          if (length(std_parent_name>1)){
-            return("Multiple parent matches. Please provide more specific parent.")
-          }
-          
-        } else if (length(parent_possible_matches>1)){
-          return("Multiple parent matches. Please provide more specific parent.")
-        }
-      }
-      ## If parent not standarized with ::, look up parent
-    } else {
-      std_parent_name <- standardize_name(location=parent, dbname=dbname)
-    }
+  if (sum(parents_nonstd)>0){
+    std_parent_name[parents_nonstd] = sapply(parent[parents_nonstd], function(x) tryCatch(database_standardize_name(name=x, 
+                                                                                    dbname=dbname,
+                                                                                    standard=FALSE,
+                                                                                    source=NULL), error=function(err) NA)
+    )
+    parents_nonstd <- is.na(std_parent_name)
   }
   
+
+  ## If we didn't find all the parents, take more drastic measures
+  # if (sum(parents_nonstd)>0){
+  #   
+  #   # Do nothing currently --> to implement
+  #   
+  #   parents_unk <- parent[parents_nonstd]
+  #   
+  #   ## Check if parent is standardized, scope the search
+  #   if (grepl("::", parents_unk)){
+  #     parent_levels <- unlist(strsplit(parents_unk, "::"))
+  #     
+  #     parent_scoped = parent_scoped_vector =NULL
+  #     for (i in 1:length(parent_levels)){
+  #       parent_scoped = tryCatch(standardize_name(location=parent_levels[i], 
+  #                                  dbname=dbname,
+  #                                  standard=FALSE,
+  #                                  source=parent_scoped), error=function(err) NA)
+  #       parent_scoped_vector <- c(parent_scoped_vector, parent_scoped)
+  #     }
+  #     
+  #     parent_match <- which(tolower(db$name)==tolower(parents_unk))
+  #     
+  #     if (length(parent_match)==1){
+  #       std_parent_name <- db$name[tolower(db$name)==tolower(parents_unk)]
+  #       
+  #       ## if no matches, need to specify parent better
+  #     } else if (length(parent_match)>1){
+  #       return("Multiple parent matches. Please provide more specific parent.")
+  #       
+  #       ## if no match, need to check for incomplete parent name
+  #     } else if (length(parent_match)==0){
+  #       parent_possible_matches <- grep(tolower(parents_unk), tolower(db$name))
+  #       if (length(parent_possible_matches==1)){
+  #         std_parent_name <- db$name[parent_possible_matches]
+  #         
+  #         ## If no match found, try to take only the last chunk after the final ::
+  #       } else if (length(parent_possible_matches==0)){
+  #         parent_ <- unlist(strsplit(parents_unk, "::"))
+  #         parent_ <- parent_[length(parent_)]
+  #         std_parent_name <- standardize_name(location=parent_, dbname=dbname)
+  #         if (length(std_parent_name>1)){
+  #           return("Multiple parent matches. Please provide more specific parent.")
+  #         }
+  #         
+  #       } else if (length(parent_possible_matches>1)){
+  #         return("Multiple parent matches. Please provide more specific parent.")
+  #       }
+  #     }
+  #     ## If parent not standarized with ::, look up parent
+  #   } else {
+  #     std_parent_name <- standardize_name(location=parent, dbname=dbname)
+  #   }
+  # }
+  
   ## Check for name in aliases, if specified. return alias standard name if already exists.
+  
   if (check_aliases){
-    std_name <- standardize_name(location=name, scope=std_parent_name, dbname=dbname)
+    std_name <- standardize_name(location=name, scope=ifelse(is.na(std_parent_name), NULL, std_parent_name), dbname=dbname)
     if (!is.na(std_name)){
       return(std_name)
     } 

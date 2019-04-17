@@ -12,7 +12,8 @@
 database_add_descendent <- function(
   standardized_name,
   readable_descendent_name,
-  metadata, dbname=default_database_filename()
+  metadata, 
+  dbname=default_database_filename()
 ){
   
   standardized_descendent_name = create_standardized_name(
