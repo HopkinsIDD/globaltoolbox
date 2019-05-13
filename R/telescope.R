@@ -137,6 +137,3 @@ telescoping_standardize <- function(location_name){
   location_sf = ungroup(location_sf)
   return(location_sf$standardized_name)
 }
-
-
-

@@ -227,11 +227,11 @@ database_add_location_alias <- function(location_id, alias,dbname = default_data
 database_standardize_name <- function(
   name,
   source=NULL,
-  standard=TRUE,
+  aliases=TRUE,
+  strict_scope=TRUE,
   depth=NA,
   dbname = default_database_filename()
 ){
-  
   con <- dbConnect(drv=SQLite(),dbname)
   query = "SELECT
     name
@@ -247,39 +247,30 @@ database_standardize_name <- function(
       locations.id = location_aliases.location_id
     WHERE
       alias is {name}"
-  if(standard){
+  if(!aliases){
     query = paste(query,'AND alias is name')
   }
   if(is.null(source)){
+    query = paste(query,'AND depth = 0')
   } else {
     parent_id = as.numeric(source)
     if(is.na(parent_id)){
       parent_id = get_database_id_from_name(name=source,dbname=dbname)
     }
     query = paste(query,'AND parent_id = {parent_id}')
+    if(strict_scope){
+      query = paste(query,'AND depth > 0')
+    }
+    if(!is.na(depth)){
+      query = paste(query,'AND depth <= {depth}')
+    }
   }
   rc <- dbGetQuery(con,glue_sql(.con=con,query))
   #' @importFrom dplyr filter
   rc <- filter(rc,!duplicated(name))
 
-  if(!is.na(depth)){
-    tmp = sapply(rc$name,function(x){return(get_location_metadata(x,dbname=dbname)$depth)})
-    tmp2 = (tmp == depth)
-    tmp2[is.na(tmp2)] = FALSE
-    tmp2 = which(tmp2)
-    rc = rc[tmp2,,drop=FALSE]
-  }
   if(length(rc$name) != 1){
-    if(length(rc$name) > 1){
-      tmp = sapply(rc$name,function(x){return(get_location_metadata(x,dbname=dbname)$readable_name)})
-      tmp2 = (tmp == name)
-      tmp2[is.na(tmp2)] = FALSE
-      tmp2 = which(tmp2)
-      rc = rc[tmp2,,drop=FALSE]
-    }
-    if(length(rc$name) != 1){
-      stop(paste("Ambiguous location",name,"has",nrow(rc),"location_ids"))
-    }
+    stop(paste("Ambiguous location",name,"has",nrow(rc),"location_ids"))
   }
   dbDisconnect(con)
   return(rc$name)

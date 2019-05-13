@@ -18,7 +18,15 @@
 #' @importFrom stringr str_replace_all
 #' @import dplyr
 #' @export
-standardize_name <- function(location, scope=NULL, metadata, dbname=NULL, strict_scope=TRUE, ...){
+standardize_name <- function(
+  location,
+  scope=NULL,
+  metadata,
+  dbname=NULL,
+  strict_scope=TRUE,
+  depth=NA,
+  ...
+){
   
   ## # TEMPORARY -- draw from country_names and country_codes data
   ## data('country_names',package='globaltoolbox')
@@ -35,6 +43,7 @@ standardize_name <- function(location, scope=NULL, metadata, dbname=NULL, strict
     source=scope,
     dbname=dbname,
     aliases=TRUE,
+    depth=depth,
     strict_scope=strict_scope
   )
 
@@ -207,7 +216,9 @@ create_standardized_name <- function(name, parent=NA, check_aliases=FALSE, dbnam
     return(standardize_location_strings(name))
   }
   if (length(parent)==1 && is.na(parent)){
-    return("Need to specify parent")
+    ## JK: Turned these into stops someone not looking at the results
+    ##     might not notice the function failed
+    stop("Need to specify parent")
   }
   
   ## Load database
@@ -225,7 +236,7 @@ create_standardized_name <- function(name, parent=NA, check_aliases=FALSE, dbnam
   #     I think it makes sense to use sapply here
   std_parent_name = sapply(parent, function(x) tryCatch(database_standardize_name(name=x, 
                                                            dbname=dbname,
-                                                          standard=TRUE,
+                                                          aliases=FALSE,
                                                           source=NULL), error=function(err) NA)
   )
   parents_nonstd <- is.na(std_parent_name)
@@ -234,7 +245,7 @@ create_standardized_name <- function(name, parent=NA, check_aliases=FALSE, dbnam
   if (sum(parents_nonstd)>0){
     std_parent_name[parents_nonstd] = sapply(parent[parents_nonstd], function(x) tryCatch(database_standardize_name(name=x, 
                                                                                     dbname=dbname,
-                                                                                    standard=FALSE,
+                                                                                    aliases = TRUE,
                                                                                     source=NULL), error=function(err) NA)
     )
     parents_nonstd <- is.na(std_parent_name)
@@ -256,7 +267,7 @@ create_standardized_name <- function(name, parent=NA, check_aliases=FALSE, dbnam
   #     for (i in 1:length(parent_levels)){
   #       parent_scoped = tryCatch(standardize_name(location=parent_levels[i], 
   #                                  dbname=dbname,
-  #                                  standard=FALSE,
+  #                                  aliases = TRUE,
   #                                  source=parent_scoped), error=function(err) NA)
   #       parent_scoped_vector <- c(parent_scoped_vector, parent_scoped)
   #     }
@@ -302,7 +313,6 @@ create_standardized_name <- function(name, parent=NA, check_aliases=FALSE, dbnam
     std_name <- standardize_name(location=name, scope=ifelse(is.na(std_parent_name), NULL, std_parent_name), dbname=dbname,strict_scope=TRUE)
     if(length(name) > 1){stop("This is not vectorized")}
     if (!is.na(std_name)){
-        browser()
       stop(paste("The location",name,"already has a standardized entry in the database"))
     } 
   }
@@ -316,7 +326,9 @@ create_standardized_name <- function(name, parent=NA, check_aliases=FALSE, dbnam
   if(any(!is.na(std_parent_name))){
     return(standardize_location_strings(paste(std_parent_name, name, sep="::")))
   } else {
-    return("Could not identify the parent. Please recheck.")
+    ## JK: Turned these into stops someone not looking at the results
+    ##     might not notice the function failed
+    stop("Could not identify the parent. Please recheck.")
   }
 }
 
@@ -480,5 +492,3 @@ standardize_string <- function(string){
   string[sapply(string,length) == 0] = ''
   return(string)
 }
-
-
