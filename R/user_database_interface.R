@@ -16,10 +16,11 @@ database_add_descendent <- function(
   dbname=default_database_filename()
 ){
   
+  warning("Not checking for aliases as name matching is too sensitive")
   standardized_descendent_name = create_standardized_name(
     name=readable_descendent_name,
     parent=standardized_name,
-    check_aliases=TRUE,
+    check_aliases=FALSE,
     dbname=dbname
   )
 
@@ -34,6 +35,13 @@ database_add_descendent <- function(
     metadata=metadata,dbname=dbname
   )
   database_add_location_hierarchy(descendent_id,descendent_id,0,dbname=dbname)
+  if(grepl(':',standardized_descendent_name)){
+    database_add_location_alias(
+      location_id=descendent_id,
+      alias=gsub('.*:','',standardized_descendent_name),
+      dbname=dbname
+    )
+  }
   database_add_location_alias(
     location_id=descendent_id,
     alias=standardized_descendent_name,
@@ -55,5 +63,6 @@ database_add_descendent <- function(
     #' @importFrom glue glue_sql
     dbClearResult(dbSendQuery(con,glue_sql(.con=con,query)))
   }
+  dbDisconnect(con)
   return(descendent_id)
 }

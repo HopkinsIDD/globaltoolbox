@@ -39,6 +39,8 @@ standardize_name <- function(location, scope=NULL, metadata, dbname=NULL, strict
   )
 
   # why is this in here????
+  # JK: This was here because constructing db_scoped is resource intensive, and we don't want to construct it
+  #     if the user already provided a standardized name
   # try({
   #   rc <- database_standardize_name(location,scope,dbname=dbname)
   #   if(length(rc) == 1){return(rc)}
@@ -47,11 +49,9 @@ standardize_name <- function(location, scope=NULL, metadata, dbname=NULL, strict
   
   ## Clean Locations and aliases to match
   ## - cleaning here will be faster than for each match (maybe?)
-  location_clean <- tolower(iconv(location, from = 'UTF-8', to = 'ASCII//TRANSLIT'))
-  location_clean <- str_replace_all(location_clean, "[[:punct:]]", "") # remove all punctuation
-  names_b_data = db_scoped %>% select(id, name=name)
-  names_b_data$name = tolower(iconv(names_b_data$name, from = 'UTF-8', to = 'ASCII//TRANSLIT'))
-  names_b_data$name <- str_replace_all(names_b_data$name, "[[:punct:]]", "") # remove all punctuation
+  location_clean <- standardize_location_strings(location)
+  names_b_data = db_scoped %>% select(id, name=alias)
+  names_b_data$name <- standardize_location_strings(names_b_data$name)
 
   ## Run the "match_names" function to match. 
   ##  - This returns a row index pertaining to names_b_data.
@@ -87,6 +87,7 @@ standardize_name <- function(location, scope=NULL, metadata, dbname=NULL, strict
   
   ## NOTE: As currently implemented, we are not restricting the scope or metadata for each location.
   
+  if(all(is.na(matches_))){return(matches_)}
   return(db_scoped$name[matches_])
 }
 
@@ -114,14 +115,12 @@ match_names <- function(name_a, names_b_data,
   
   ## Clean name if not already done
   if (clean_a){
-    name_a = tolower(iconv(name_a, from = 'UTF-8', to = 'ASCII//TRANSLIT'))
-    name_a <- str_replace_all(name_a, "[[:punct:]]", "") # remove all punctuation
+    name_a <- standardize_location_strings(name_a)
   }
   
   ## Clean aliases if not done
   if (clean_b){
-    names_b = tolower(iconv(names_b, from = 'UTF-8', to = 'ASCII//TRANSLIT'))
-    names_b <- str_replace_all(names_b, "[[:punct:]]", "") # remove all punctuation
+    names_b = standardize_location_strings(names_b)
   }
   
   ## string matching methods
@@ -136,7 +135,11 @@ match_names <- function(name_a, names_b_data,
                       names_clean=names_b,
                       dists,
                       score_sums = rowSums(dists))
-  dists$score_sums_normalized <- 1 - (dists$score_sums / max(dists$score_sums))
+  if(!all(is.na(dists))){
+      dists$score_sums_normalized <- 1 - (dists$score_sums / max(dists$score_sums))
+  } else {
+      dists$score_sums_normalized = dists$score_sums
+  }
   dists$osa <- as.integer(dists$osa)
 
   
@@ -196,12 +199,12 @@ match_names <- function(name_a, names_b_data,
 #' @return an index of the best match of name_a from names_b_data.
 #' @importFrom stringr str_replace_all str_to_title
 #' @export
-create_standardized_name <- function(name, parent=NA, check_aliases=FALSE, dbname=NULL){
+create_standardized_name <- function(name, parent=NA, check_aliases=FALSE, dbname=NULL,verbose=FALSE){
   
   ## Do a couple of checks
   if(is.null(parent)){
-    warning("This function does not currently handle creating standardized country names")
-    return(name)
+    if(verbose){warning("This function does not currently handle creating standardized country names")}
+    return(standardize_location_strings(name))
   }
   if (length(parent)==1 && is.na(parent)){
     return("Need to specify parent")
@@ -214,13 +217,12 @@ create_standardized_name <- function(name, parent=NA, check_aliases=FALSE, dbnam
   }
 
   ## Standardize the location name
-  name <- tolower(iconv(name, from = 'UTF-8', to = 'ASCII//TRANSLIT'))
-  name <- str_replace_all(name, "[[:punct:]]", "") # remove all punctuation
-  name <- str_to_title(name)
-  name <- str_replace_all(name, " ", "-") # Replace space with dash
+  name <- standardize_location_strings(name)
   
   ## Check for fully standardized parent in database (only full names with all levels separated by "::" )
   # NEED TO VECTORIZE `database_standardize_name` function
+  # JK: It doesn't make sense to vectorize the database_standardize_name function, since it throws errors on failure.
+  #     I think it makes sense to use sapply here
   std_parent_name = sapply(parent, function(x) tryCatch(database_standardize_name(name=x, 
                                                            dbname=dbname,
                                                           standard=TRUE,
@@ -296,20 +298,23 @@ create_standardized_name <- function(name, parent=NA, check_aliases=FALSE, dbnam
   ## Check for name in aliases, if specified. return alias standard name if already exists.
   
   if (check_aliases){
-    std_name <- standardize_name(location=name, scope=ifelse(is.na(std_parent_name), NULL, std_parent_name), dbname=dbname)
+    # JK: This is not vectorized:
+    std_name <- standardize_name(location=name, scope=ifelse(is.na(std_parent_name), NULL, std_parent_name), dbname=dbname,strict_scope=TRUE)
+    if(length(name) > 1){stop("This is not vectorized")}
     if (!is.na(std_name)){
-      return(std_name)
+        browser()
+      stop(paste("The location",name,"already has a standardized entry in the database"))
     } 
   }
   
   ## Deal with the ISO-3166-2 case here
-  if(!grepl("::",parent)){
-    warning("This function does not properly standardize ISO-3166-2 names")
+  if(any(!grepl("::",parent))){
+    if(verbose){warning("This function does not properly standardize ISO-3166-2 names")}
   }
   
   ## If parent was identified, and name not found in aliases, return new name
-  if (!is.na(std_parent_name)){
-    return(paste(std_parent_name, name, sep="::"))
+  if(any(!is.na(std_parent_name))){
+    return(standardize_location_strings(paste(std_parent_name, name, sep="::")))
   } else {
     return("Could not identify the parent. Please recheck.")
   }
@@ -370,11 +375,9 @@ standardize_name_local <- function(location, scope=NULL, metadata,
   
   ## Clean Locations and aliases to match
   ## - cleaning here will be faster than for each match (maybe?)
-  location_clean <- tolower(iconv(location, from = 'UTF-8', to = 'ASCII//TRANSLIT'))
-  location_clean <- str_replace_all(location_clean, "[[:punct:]]", "") # remove all punctuation
+  location_clean <- standardize_location_strings(location)
   names_b_data = db_scoped %>% select(id, name)
-  names_b_data$name = tolower(iconv(names_b_data$name, from = 'UTF-8', to = 'ASCII//TRANSLIT'))
-  names_b_data$name <- str_replace_all(names_b_data$name, "[[:punct:]]", "") # remove all punctuation
+  names_b_data$name <- standardize_location_strings(names_b_data$name)
   
   ## Run the "match_names" function to match. 
   ##  - This returns a row index pertaining to names_b_data.
@@ -422,3 +425,58 @@ get_common_name_local <- function(location, scope=NULL, metadata,
 # get_common_name_local(location, scope="BGD::Barisal", metadata, type="district")
 
 
+
+#' @export
+standardize_location_strings <- function(location_name){
+  if(length(location_name) == 0){return(location_name)}
+  location_tmp = location_name
+  location_tmp = gsub('|','VERTCHARACTER',location_tmp,fixed=TRUE)
+  location_tmp = gsub('-','DASHCHARACTER',location_tmp,fixed=TRUE)
+  location_tmp = gsub('::','DOUBLECOLONCHARACTER',location_tmp,fixed=TRUE)
+  location_tmp = standardize_string(location_tmp)
+  location_tmp = gsub('DOUBLECOLONCHARACTER','::',location_tmp,fixed=TRUE)
+  location_tmp = gsub('DASHCHARACTER','-',location_tmp,fixed=TRUE)
+  location_tmp = gsub('VERTCHARACTER','|',location_tmp,fixed=TRUE)
+  while(any(
+    grepl(pattern = '::$',location_tmp) ||
+    grepl(pattern = '::NA$',location_tmp) ||
+    grepl(pattern = '::::',location_tmp)
+    )){
+    location_tmp = gsub(':::',':',location_tmp,fixed=TRUE)
+    location_tmp = gsub('::NA$','',location_tmp)
+    location_tmp = gsub('::$','',location_tmp)
+  }
+  return(location_tmp)
+}
+
+#' @export
+ranked_encodings = c('UTF-8','LATIN1')
+standardize_string <- function(string){
+  # if(is.na(string)){return(NA)}
+  string = as.character(string)
+  string = strsplit(string,'|',fixed=TRUE)
+  string = lapply(string,function(x){gsub(' ','',x)})
+  string = lapply(string,function(x){
+    if(length(x) == 0){
+      return(x)
+    }
+    for(i in 1:length(x)){
+      if(Encoding(x[i]) != 'unknown'){
+        x[i] = iconv(from=Encoding(x[i]),to='ASCII//TRANSLIT',x[i])
+      } else {
+          for(encoding in ranked_encodings){
+              if(!is.na(x[i])){next}
+              y = iconv(from=encoding,to='ASCII//TRANSLIT',x[i])
+              if(!is.na(y)){
+                  x[i] = y
+              }
+          }
+      }
+    }
+    return(x)
+  })
+  string = lapply(string,function(x){gsub('[[:punct:]]','',x)})
+  string = lapply(string,function(x){toupper(x)})
+  string[sapply(string,length) == 0] = ''
+  return(string)
+}

@@ -77,6 +77,7 @@ get_location_metadata <- function(
     cnames = cnames[cnames %in% colnames(results)]
     results = results[,cnames]
   }
+  dbDisconnect(con)
   return(results)
 }
 
@@ -121,5 +122,6 @@ get_all_aliases <- function(source,depth,dbname=default_database_filename()){
     }
   }
   results <- dbGetQuery(con,glue_sql(.con=con,query))
+  dbDisconnect(con)
   return(results)
 }

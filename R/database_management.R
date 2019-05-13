@@ -8,6 +8,7 @@ default_database_filename = function(){
 #'   up a postgres database, see https://www.r-bloggers.com/getting-started-with-postgresql-in-r
 #' @param dbname The name of the database to connect to
 #' @param ... Other parameters for RPostgreSQL::dbConnect
+#' @importFrom RSQLite dbDisconnect
 #' @export
 reset_database <- function(dbname = default_database_filename()){
   ## Create Tables
@@ -20,6 +21,8 @@ reset_database <- function(dbname = default_database_filename()){
   dbClearResult(dbSendQuery(con, "DROP TABLE location_hierarchy"))
   dbClearResult(dbSendQuery(con, "DROP TABLE location_aliases"))
   dbClearResult(dbSendQuery(con, "DROP TABLE location_geometries"))
+  dbDisconnect(con)
+  return()
 }
 
 #' @name create_database
@@ -30,6 +33,7 @@ reset_database <- function(dbname = default_database_filename()){
 #' @param ... Other parameters for RPostgreSQL::dbConnect
 #' @importFrom RSQLite SQLite
 #' @importFrom DBI dbConnect
+#' @importFrom RSQLite dbDisconnect
 #' @export
 create_database <- function(dbname = default_database_filename(),...){
   ## Create Tables
@@ -108,6 +112,7 @@ create_database <- function(dbname = default_database_filename(),...){
                                         # database_add_descendent(standardized_descendent_name = "EUR",readable_descendent_name='Europe',standardized_name=NULL,metadata = list('type'='WHO Region'),dbname = dbname)
                                         # database_add_descendent(standardized_descendent_name = "SEAR",readable_descendent_name='Southeast Asia',standardized_name=NULL,metadata = list('type'='WHO Region'),dbname = dbname)
                                         # database_add_descendent(standardized_descendent_name = "WPR",readable_descendent_name='Western Pacific',standardized_name=NULL,metadata = list('type'='WHO Region'),dbname = dbname)
+  dbDisconnect(con)
   return()
 }
 
@@ -124,6 +129,7 @@ create_database <- function(dbname = default_database_filename(),...){
 #' @importFrom jsonlite toJSON
 #' @importFrom DBI dbGetQuery dbClearResult
 #' @importFrom glue glue_sql
+#' @importFrom RSQLite dbDisconnect
 #' @export
 database_add_location <- function(name, readable_name,metadata=NULL,dbname = default_database_filename()){
   if(is.numeric(name)){stop("This should not happen")}
@@ -138,12 +144,14 @@ database_add_location <- function(name, readable_name,metadata=NULL,dbname = def
   dbClearResult(dbSendQuery(con,glue_sql(.con=con,query)))
                                         # dbClearResult(dbSendQuery(con, query))
   rc <- dbGetQuery(con, 'SELECT DISTINCT last_insert_rowid() FROM locations')
+  dbDisconnect(con)
   return(return(rc))
 }
 
 
 #' @name database_add_location_hierarchy
 #' @description Wrapper for the sql code to create a relationship in the location hierarchy.  This function should not be called directly in most circumstances.  See database_add_descendent and database_add_alias instead.
+#' @importFrom RSQLite dbDisconnect
 #' @export
 database_add_location_hierarchy <- function(parent_id, descendent_id,depth,dbname = default_database_filename()){
   #' @importFrom RSQLite SQLite
@@ -156,11 +164,13 @@ database_add_location_hierarchy <- function(parent_id, descendent_id,depth,dbnam
   #' @importFrom DBI dbSendQuery dbClearResult
   #' @importFrom glue glue_sql
   dbClearResult(dbSendQuery(con,glue_sql(.con=con,query)))
+  dbDisconnect(con)
   return()
 }
 
 #' @name database_add_location_geometry
 #' @description Wrapper for the sql code to create a geometry associated with a location at a time period.
+#' @importFrom RSQLite dbDisconnect
 #' @export
 database_add_location_geometry <- function(location_id, time_left, time_right, geometry,dbname = default_database_filename()){
   #' @importFrom RSQLite SQLite
@@ -175,11 +185,13 @@ database_add_location_geometry <- function(location_id, time_left, time_right, g
   #' @importFrom DBI dbSendQuery dbClearResult
   #' @importFrom glue glue_sql
   dbClearResult(dbSendQuery(con,glue_sql(.con=con,query)))
+  dbDisconnect(con)
   return()
 }
 
 #' @name database_add_location_alias
 #' @description Wrapper for the sql code to create an alias for a location.
+#' @importFrom RSQLite dbDisconnect
 #' @export
 database_add_location_alias <- function(location_id, alias,dbname = default_database_filename()){
   #' @importFrom RSQLite SQLite
@@ -192,6 +204,7 @@ database_add_location_alias <- function(location_id, alias,dbname = default_data
   #' @importFrom DBI dbSendQuery dbClearResult
   #' @importFrom glue glue_sql
   dbClearResult(dbSendQuery(con,glue_sql(.con=con,query)))
+  dbDisconnect(con)
   return()
 }
 
@@ -203,12 +216,13 @@ database_add_location_alias <- function(location_id, alias,dbname = default_data
 #' @description Get the id of a location by looking up it's name.
 #' @param name The name of the location to search for
 #' @param source A standardized location name or id number.  If not NULL, the search will be limited to locations within the source
-#' @param standard Whether or not ...
+#' @param standard Whether or not to check aliases.
 #' @param depth How deep under the source should the search extent. (Not yet implemented)
 #' @param dbname The name of the database.  Defaults to the database associated with the package
 #' @importFrom RSQLite SQLite
 #' @importFrom DBI dbConnect
 #' @importFrom glue glue_sql
+#' @importFrom RSQLite dbDisconnect
 #' @export
 database_standardize_name <- function(
   name,
@@ -223,10 +237,10 @@ database_standardize_name <- function(
     name
   FROM
     (locations
-      INNER JOIN
+      LEFT JOIN
     location_hierarchy
       ON
-        location_hierarchy.descendent_id = location_id
+        locations.id = location_hierarchy.descendent_id
     ) INNER JOIN
     location_aliases
       ON
@@ -267,6 +281,7 @@ database_standardize_name <- function(
       stop(paste("Ambiguous location",name,"has",nrow(rc),"location_ids"))
     }
   }
+  dbDisconnect(con)
   return(rc$name)
 }
 
@@ -277,8 +292,10 @@ database_standardize_name <- function(
 #' @description Get the id of a location by looking up it's name.
 #' @param name Standardized name of a location
 #' @param dbname Name of the database. Defaults to default location.
+#' @importFrom RSQLite dbDisconnect
 #' @export
 get_database_id_from_name <- function(name,dbname = default_database_filename()){
+  if(length(name) > 1){return(sapply(name,get_database_id_from_name,dbname=dbname))}
   con <- dbConnect(drv=SQLite(),dbname)
   query = "SELECT
     id
@@ -289,5 +306,6 @@ get_database_id_from_name <- function(name,dbname = default_database_filename())
   if(length(rc$id) != 1){
     stop(paste("Ambiguous location",name,"has",nrow(rc),"location_ids"))
   }
+  dbDisconnect(con)
   return(rc$id)
 }

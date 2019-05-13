@@ -141,12 +141,7 @@ for(ISO_A1 in all_countries){
           colnames(metadata_frame) = gsub(paste0('_',i,'$'),'',colnames(metadata_frame))
         }
         parent_name = tmp_data[[paste('NAME',ISO_level-1,sep='_')]]
-        parent_name = database_standardize_name(
-          name=parent_name,
-          source=NULL,
-          standard=FALSE,
-          depth = ISO_level - 1
-        )
+        parent_name = telescoping_standardize(parent_name)
         descendent_id <- globaltoolbox:::database_add_descendent(
                                            dbname=dbname,
                                            metadata=metadata_frame,
