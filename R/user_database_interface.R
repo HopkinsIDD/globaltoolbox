@@ -1,4 +1,3 @@
-
 #' @name database_add_descendent
 #' @include database_management.R standardize_name.R
 #' @description Add a new location to the database as a descendent of another region.
@@ -65,4 +64,69 @@ database_add_descendent <- function(
   }
   dbDisconnect(con)
   return(descendent_id)
+}
+
+#' @name database_standardize_name
+#' @title database_standardize_name
+#' @description Get the id of a location by looking up it's name.
+#' @param name The name of the location to search for
+#' @param source A standardized location name or id number.  If not NULL, the search will be limited to locations within the source
+#' @param standard Whether or not to check aliases.
+#' @param depth How deep under the source should the search extent. (Not yet implemented)
+#' @param dbname The name of the database.  Defaults to the database associated with the package
+#' @importFrom RSQLite SQLite
+#' @importFrom DBI dbConnect
+#' @importFrom glue glue_sql
+#' @importFrom RSQLite dbDisconnect
+#' @export
+database_standardize_name <- function(
+  name,
+  source=NULL,
+  aliases=TRUE,
+  strict_scope=TRUE,
+  depth=NA,
+  dbname = default_database_filename()
+){
+  con <- dbConnect(drv=SQLite(),dbname)
+  query = "SELECT
+    name
+  FROM
+    (locations
+      LEFT JOIN
+    location_hierarchy
+      ON
+        locations.id = location_hierarchy.descendent_id
+    ) INNER JOIN
+    location_aliases
+      ON
+      locations.id = location_aliases.location_id
+    WHERE
+      alias is {name}"
+  if(!aliases){
+    query = paste(query,'AND alias is name')
+  }
+  if(is.null(source)){
+    query = paste(query,'AND depth = 0')
+  } else {
+    parent_id = as.numeric(source)
+    if(is.na(parent_id)){
+      parent_id = get_database_id_from_name(name=source,dbname=dbname)
+    }
+    query = paste(query,'AND parent_id = {parent_id}')
+    if(strict_scope){
+      query = paste(query,'AND depth > 0')
+    }
+    if(!is.na(depth)){
+      query = paste(query,'AND depth <= {depth}')
+    }
+  }
+  rc <- dbGetQuery(con,glue_sql(.con=con,query))
+  #' @importFrom dplyr filter
+  rc <- filter(rc,!duplicated(name))
+
+  if(length(rc$name) != 1){
+    stop(paste("Ambiguous location",name,"has",nrow(rc),"location_ids"))
+  }
+  dbDisconnect(con)
+  return(rc$name)
 }

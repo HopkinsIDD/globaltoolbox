@@ -7,21 +7,15 @@ default_database_filename = function(){
 #'   Requires postgres database already set up.  For instructions on how to set
 #'   up a postgres database, see https://www.r-bloggers.com/getting-started-with-postgresql-in-r
 #' @param dbname The name of the database to connect to
-#' @param ... Other parameters for RPostgreSQL::dbConnect
-#' @importFrom RSQLite dbDisconnect
 #' @export
 reset_database <- function(dbname = default_database_filename()){
   ## Create Tables
   
   #' @importFrom RSQLite SQLite
   #' @importFrom DBI dbConnect
-  con <- dbConnect(drv=SQLite(),dbname)
-  #' @importFrom DBI dbSendQuery dbClearResult
-  dbClearResult(dbSendQuery(con, "DROP TABLE locations"))
-  dbClearResult(dbSendQuery(con, "DROP TABLE location_hierarchy"))
-  dbClearResult(dbSendQuery(con, "DROP TABLE location_aliases"))
-  dbClearResult(dbSendQuery(con, "DROP TABLE location_geometries"))
-  dbDisconnect(con)
+  if(file.exists(dbname)){
+    file.remove(dbname)
+  }
   return()
 }
 
@@ -35,7 +29,7 @@ reset_database <- function(dbname = default_database_filename()){
 #' @importFrom DBI dbConnect
 #' @importFrom RSQLite dbDisconnect
 #' @export
-create_database <- function(dbname = default_database_filename(),...){
+create_database <- function(dbname = default_database_filename()){
   ## Create Tables
 
   con <- dbConnect(drv=SQLite(),dbname)
@@ -148,7 +142,6 @@ database_add_location <- function(name, readable_name,metadata=NULL,dbname = def
   return(return(rc))
 }
 
-
 #' @name database_add_location_hierarchy
 #' @description Wrapper for the sql code to create a relationship in the location hierarchy.  This function should not be called directly in most circumstances.  See database_add_descendent and database_add_alias instead.
 #' @importFrom RSQLite dbDisconnect
@@ -207,76 +200,6 @@ database_add_location_alias <- function(location_id, alias,dbname = default_data
   dbDisconnect(con)
   return()
 }
-
-
-
-
-#' @name database_standardize_name
-#' @title database_standardize_name
-#' @description Get the id of a location by looking up it's name.
-#' @param name The name of the location to search for
-#' @param source A standardized location name or id number.  If not NULL, the search will be limited to locations within the source
-#' @param standard Whether or not to check aliases.
-#' @param depth How deep under the source should the search extent. (Not yet implemented)
-#' @param dbname The name of the database.  Defaults to the database associated with the package
-#' @importFrom RSQLite SQLite
-#' @importFrom DBI dbConnect
-#' @importFrom glue glue_sql
-#' @importFrom RSQLite dbDisconnect
-#' @export
-database_standardize_name <- function(
-  name,
-  source=NULL,
-  aliases=TRUE,
-  strict_scope=TRUE,
-  depth=NA,
-  dbname = default_database_filename()
-){
-  con <- dbConnect(drv=SQLite(),dbname)
-  query = "SELECT
-    name
-  FROM
-    (locations
-      LEFT JOIN
-    location_hierarchy
-      ON
-        locations.id = location_hierarchy.descendent_id
-    ) INNER JOIN
-    location_aliases
-      ON
-      locations.id = location_aliases.location_id
-    WHERE
-      alias is {name}"
-  if(!aliases){
-    query = paste(query,'AND alias is name')
-  }
-  if(is.null(source)){
-    query = paste(query,'AND depth = 0')
-  } else {
-    parent_id = as.numeric(source)
-    if(is.na(parent_id)){
-      parent_id = get_database_id_from_name(name=source,dbname=dbname)
-    }
-    query = paste(query,'AND parent_id = {parent_id}')
-    if(strict_scope){
-      query = paste(query,'AND depth > 0')
-    }
-    if(!is.na(depth)){
-      query = paste(query,'AND depth <= {depth}')
-    }
-  }
-  rc <- dbGetQuery(con,glue_sql(.con=con,query))
-  #' @importFrom dplyr filter
-  rc <- filter(rc,!duplicated(name))
-
-  if(length(rc$name) != 1){
-    stop(paste("Ambiguous location",name,"has",nrow(rc),"location_ids"))
-  }
-  dbDisconnect(con)
-  return(rc$name)
-}
-
-
 
 #' @name get_database_id_from_name
 #' @title get_database_id_from_name
