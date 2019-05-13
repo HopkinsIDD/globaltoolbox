@@ -476,7 +476,9 @@ standardize_string <- function(string){
     return(x)
   })
   string = lapply(string,function(x){gsub('[[:punct:]]','',x)})
-  string = lapply(string,function(x){toupper(x)})
+  string = lapply(string,function(x){tolower(x)})
   string[sapply(string,length) == 0] = ''
   return(string)
 }
+
+

@@ -89,6 +89,11 @@ create_location_sf <- function(location_name,thorough=FALSE){
   return(ungrouped_shapefiles)
 }
 
+
+
+# ADD ARGUMENTS
+
+
 #' @export
 telescoping_standardize <- function(location_name){
   location_name = standardize_location_strings(location_name)
@@ -133,56 +138,5 @@ telescoping_standardize <- function(location_name){
   return(location_sf$standardized_name)
 }
 
-#' @export
-standardize_locations <- function(location_name){
-  location_tmp = location_name
-  location_tmp = gsub('|','VERTCHARACTER',location_tmp,fixed=TRUE)
-  location_tmp = gsub('-','DASHCHARACTER',location_tmp,fixed=TRUE)
-  location_tmp = gsub('::','DOUBLECOLONCHARACTER',location_tmp,fixed=TRUE)
-  location_tmp = standardize_string(location_tmp)
-  location_tmp = gsub('DOUBLECOLONCHARACTER','::',location_tmp,fixed=TRUE)
-  location_tmp = gsub('DASHCHARACTER','-',location_tmp,fixed=TRUE)
-  location_tmp = gsub('VERTCHARACTER','|',location_tmp,fixed=TRUE)
-  while(any(
-    grepl(pattern = '::$',location_tmp) ||
-    grepl(pattern = '::NA$',location_tmp) ||
-    grepl(pattern = '::::',location_tmp)
-    )){
-    location_tmp = gsub(':::',':',location_tmp,fixed=TRUE)
-    location_tmp = gsub('::NA$','',location_tmp)
-    location_tmp = gsub('::$','',location_tmp)
-  }
-  return(location_tmp)
-}
 
-#' @export
-ranked_encodings = c('UTF-8','LATIN1')
-standardize_string <- function(string){
-  # if(is.na(string)){return(NA)}
-  string = as.character(string)
-  string = strsplit(string,'|',fixed=TRUE)
-  string = lapply(string,function(x){gsub(' ','',x)})
-  string = lapply(string,function(x){
-    if(length(x) == 0){
-      return(x)
-    }
-    for(i in 1:length(x)){
-      if(Encoding(x[i]) != 'unknown'){
-        x[i] = iconv(from=Encoding(x[i]),to='ASCII//TRANSLIT',x[i])
-      } else {
-          for(encoding in ranked_encodings){
-              if(!is.na(x[i])){next}
-              y = iconv(from=encoding,to='ASCII//TRANSLIT',x[i])
-              if(!is.na(y)){
-                  x[i] = y
-              }
-          }
-      }
-    }
-    return(x)
-  })
-  string = lapply(string,function(x){gsub('[[:punct:]]','',x)})
-  string = lapply(string,function(x){toupper(x)})
-  string[sapply(string,length) == 0] = ''
-  return(string)
-}
+
