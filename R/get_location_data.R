@@ -24,7 +24,6 @@ get_location_metadata <- function(
   location=NULL,
   source=NULL,
   metadata_names=NULL,
-  dbname = default_database_filename(),
   aliases=TRUE,
   strict_scope=TRUE,
   depth=NA,
@@ -99,22 +98,36 @@ process_single_metadata_frame <- function(frame){
     return(frame)
 }
 
-get_all_aliases <- function(source,depth,dbname=default_database_filename()){
+get_all_aliases <- function(
+  location=NULL,
+  source=NULL,
+  metadata_names=NULL,
+  aliases=TRUE,
+  strict_scope=TRUE,
+  depth=NA,
+  dbname = default_database_filename()
+){
   con <- dbConnect(drv=SQLite(),dbname)
   query = "SELECT
-    name,alias,location_id
+    *
   FROM
     (locations
-      INNER JOIN
+      LEFT JOIN
     location_hierarchy
       ON
-        location_hierarchy.descendent_id = location_id
+        locations.id = location_hierarchy.descendent_id
     ) INNER JOIN
     location_aliases
       ON
       locations.id = location_aliases.location_id
     WHERE
       1=1"
+   if(!is.null(location)){
+      query = paste(query,"AND alias is {location}")
+   }
+  if(!aliases){
+    query = paste(query,'AND alias is name')
+  }
   if(is.null(source)){
     query = paste(query,'AND depth = 0')
   } else {
@@ -126,8 +139,13 @@ get_all_aliases <- function(source,depth,dbname=default_database_filename()){
     if(strict_scope){
       query = paste(query,'AND depth > 0')
     }
+    if(!is.na(depth)){
+      query = paste(query,'AND depth <= {depth}')
+    }
   }
-  results <- dbGetQuery(con,glue_sql(.con=con,query))
-  dbDisconnect(con)
-  return(results)
+  #' @importFrom glue glue_sql
+  rc <- dbGetQuery(con,glue_sql(.con=con,query))
+  rc$depth_from_source = rc$depth
+  rc$depth = NULL
+  return(rc)
 }

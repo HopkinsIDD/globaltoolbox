@@ -2,7 +2,7 @@
 #' @export
 create_location_sf <- function(location_name,thorough=FALSE){
   original_location_name = location_name
-  location_name = standardize_locations(location_name)
+  location_name = standardize_location_strings(location_name)
   location_array = strsplit(location_name,split='::')
   if(thorough){
     location_array = lapply(location_array,function(x){lapply(1:length(x),function(i){x[1:i]})})

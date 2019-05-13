@@ -28,4 +28,5 @@ Collate:
     'get_location_data.R'
     'get_region.R'
     'standardize_name.R'
+    'telescope.R'
     'user_database_interface.R'
