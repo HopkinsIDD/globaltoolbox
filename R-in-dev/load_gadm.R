@@ -116,6 +116,11 @@ for(ISO_A1 in all_countries){
   toggle = TRUE
   ISO_level = 0
   while(toggle){
+    if(length(error_messages) > 11){warning("Over 10 errors")}
+    if(length(error_messages) > 101){warning("Over 100 errors")}
+    if(length(error_messages) > 1001){warning("Over 1000 errors")}
+    if(length(error_messages) > 10001){warning("Over 10000 errors")}
+    if(length(error_messages) > 100001){warning("Over 100000 errors")}
     try({
       ISO_level = ISO_level + 1
       website <- paste(
@@ -161,7 +166,6 @@ for(ISO_A1 in all_countries){
         },
         error = function(e){
             error_messages <<- c(error_messages,paste(ISO_A1,"level",ISO_level,"location",row,"/",nrow(country_data),e$message))
-            if(length(error_messages) > 10){stop("Too many errors")}
         })
         tmp_alias_ISO_columns = paste(alias_ISO_columns[
           paste(alias_ISO_columns,ISO_level,sep='_') %in%

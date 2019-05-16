@@ -106,49 +106,59 @@ test_that("Add Geometry",{
   create_locations()
   skip_if(!require(sf),"Geometry operations require the sf package")
   skip_if(!require(lubridate),"Geometry operations require the lubridate package")
-  expect_error({database_add_location_geometry(
-    1,
-    lubridate::now()-lubridate::years(1),
-    lubridate::now(),
-    st_sfc(st_point(c(0,1))),
-    tdbn
-  )},NA)
-  expect_error({database_add_location_geometry(
-    1,
-    lubridate::now()-lubridate::years(1),
-    lubridate::now(),
-    st_sfc(st_point(c(1,1))),
-    tdbn
-  )})
-  expect_error({database_add_location_geometry(
-    1,
-    lubridate::now(),
-    lubridate::now()+lubridate::years(1),
-    st_sfc(st_point(c(1,1))),
-    tdbn
-  )},NA)
-  expect_error({database_add_location_geometry(
-    1,
-    lubridate::now()-lubridate::years(1),
-    lubridate::now()+lubridate::years(1),
-    st_sfc(st_point(c(1,1))),
-    tdbn
-  )})
-  expect_error({database_add_location_geometry(
-    2,
-    lubridate::now()-lubridate::years(1),
-    lubridate::now()+lubridate::years(1),
-    st_sfc(st_point(c(1,1))),
-    tdbn
-  )},NA)
+  expect_error({
+    database_add_location_geometry(
+      1,
+      lubridate::now() - lubridate::years(1),
+      lubridate::now(),
+      st_sfc(st_point(c(0, 1))),
+      tdbn
+    )
+  }, NA)
+  expect_error({
+    database_add_location_geometry(
+      1,
+      lubridate::now() - lubridate::years(1),
+      lubridate::now(),
+      st_sfc(st_point(c(1, 1))),
+      tdbn
+    )
+  })
+  expect_error({
+    database_add_location_geometry(
+      1,
+      lubridate::now(),
+      lubridate::now() + lubridate::years(1),
+      st_sfc(st_point(c(1, 1))),
+      tdbn
+    )
+  }, NA)
+  expect_error({
+    database_add_location_geometry(
+      1,
+      lubridate::now() - lubridate::years(1),
+      lubridate::now() + lubridate::years(1),
+      st_sfc(st_point(c(1, 1))),
+      tdbn
+    )
+  })
+  expect_error({
+      database_add_location_geometry(
+        2,
+        lubridate::now() - lubridate::years(1),
+        lubridate::now() + lubridate::years(1),
+        st_sfc(st_point(c(1, 1))),
+        tdbn
+      )
+    }, NA)
 })
 
 test_that("Retrieve ID", {
-  expect_equal(get_database_id_from_name("TST",dbname=tdbn),1)
-  expect_equal(get_database_id_from_name("TST2",dbname=tdbn),2)
-  expect_equal(get_database_id_from_name("TST::TST",dbname=tdbn),3)
+  expect_equal(get_database_id_from_name("TST", dbname = tdbn), 1)
+  expect_equal(get_database_id_from_name("TST2", dbname = tdbn), 2)
+  expect_equal(get_database_id_from_name("TST::TST", dbname = tdbn), 3)
   expect_equal(
-    get_database_id_from_name(c("TST","TST::TST","TST2"),dbname=tdbn),
-    setNames(c(1,3,2),c("TST","TST::TST","TST2"))
+    get_database_id_from_name(c("TST", "TST::TST", "TST2"), dbname = tdbn),
+    setNames(c(1, 3, 2), c("TST", "TST::TST", "TST2"))
   )
 })
