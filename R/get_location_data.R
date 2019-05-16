@@ -98,6 +98,8 @@ process_single_metadata_frame <- function(frame){
     return(frame)
 }
 
+#' @export
+#' @importFrom glue glue_sql
 get_all_aliases <- function(
   location=NULL,
   source=NULL,
@@ -109,7 +111,7 @@ get_all_aliases <- function(
 ){
   con <- dbConnect(drv=SQLite(),dbname)
   query = "SELECT
-    *
+    name,alias,readable_name,location_id as id,max(location_hierarchy.depth) as depth_from_source
   FROM
     (locations
       LEFT JOIN
@@ -128,9 +130,7 @@ get_all_aliases <- function(
   if(!aliases){
     query = paste(query,'AND alias is name')
   }
-  if(is.null(source)){
-    query = paste(query,'AND depth = 0')
-  } else {
+  if(!is.null(source)){
     parent_id = as.numeric(source)
     if(is.na(parent_id)){
       parent_id = get_database_id_from_name(name=source,dbname=dbname)
@@ -143,9 +143,8 @@ get_all_aliases <- function(
       query = paste(query,'AND depth <= {depth}')
     }
   }
-  #' @importFrom glue glue_sql
+  query = paste(query,'GROUP BY name,alias,location_id')
   rc <- dbGetQuery(con,glue_sql(.con=con,query))
-  rc$depth_from_source = rc$depth
-  rc$depth = NULL
+  dbDisconnect(con)
   return(rc)
 }

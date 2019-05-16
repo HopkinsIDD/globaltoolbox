@@ -8,3 +8,5 @@ tmpdatabase.sqlite
 fakedatabase.sqlite
 /TAGS
 /tags
+*.sqlite
+*.sqlite

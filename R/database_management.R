@@ -16,6 +16,7 @@ reset_database <- function(dbname = default_database_filename()){
   if(file.exists(dbname)){
     file.remove(dbname)
   }
+  file.create(dbname)
   return()
 }
 
@@ -30,6 +31,9 @@ reset_database <- function(dbname = default_database_filename()){
 #' @importFrom RSQLite dbDisconnect
 #' @export
 create_database <- function(dbname = default_database_filename()){
+  if(!file.exists(dbname)){
+    file.create(dbname)
+  }
   ## Create Tables
 
   con <- dbConnect(drv=SQLite(),dbname)
@@ -127,6 +131,7 @@ create_database <- function(dbname = default_database_filename()){
 #' @export
 database_add_location <- function(name, readable_name,metadata=NULL,dbname = default_database_filename()){
   if(is.numeric(name)){stop("This should not happen")}
+  name = standardize_location_strings(name)
   #' @importFrom DBI dbConnect
   con <- dbConnect(drv=SQLite(),dbname)
   metadata <- as.character(toJSON(metadata))
@@ -189,6 +194,7 @@ database_add_location_geometry <- function(location_id, time_left, time_right, g
 database_add_location_alias <- function(location_id, alias,dbname = default_database_filename()){
   #' @importFrom RSQLite SQLite
   #' @importFrom DBI dbConnect
+  alias = standardize_location_strings(alias)
   con <- dbConnect(drv=SQLite(),dbname)
   query = "INSERT INTO location_aliases
       (location_id, alias)

@@ -95,7 +95,7 @@ create_location_sf <- function(location_name,thorough=FALSE){
 
 
 #' @export
-telescoping_standardize <- function(location_name){
+telescoping_standardize <- function(location_name,dbname=default_database_filename()){
   location_name = standardize_location_strings(location_name)
   location_sf = create_location_sf(location_name,thorough=TRUE)
   all_names = list()
@@ -110,14 +110,16 @@ telescoping_standardize <- function(location_name){
     }
     for(scope in unique(tmp_location_sf$standardized_source)){
       if(is.na(scope)){
-        nonstandard_names = unique(tmp_location_sf$location_name[is.na(tmp_location_sf$standardized_source)])
-        standard_names = standardize_name(gsub('.*:','',nonstandard_names),scope=NULL)
+        nonstandard_names = unique(
+          tmp_location_sf$location_name[is.na(tmp_location_sf$standardized_source)]
+        )
+        standard_names = standardize_name(gsub('.*:','',nonstandard_names),scope=NULL,dbname=dbname)
      } else {
         nonstandard_names = unique(tmp_location_sf$location_name[
           (!is.na(tmp_location_sf$standardized_source)) &
           (tmp_location_sf$standardized_source == scope)
         ])
-        standard_names = standardize_name(gsub('.*:','',nonstandard_names),scope=scope)
+        standard_names = standardize_name(gsub('.*:','',nonstandard_names),scope=scope,dbname=dbname)
       }
       names = setNames(standard_names,nonstandard_names)
       if(level <= length(all_names)){
