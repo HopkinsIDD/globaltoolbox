@@ -1,5 +1,4 @@
 #' @export
-#' name load_gadm
 #' @param countries The set of countries to load gadm information into the database for
 #' @param dbname The name of the database file (there is a default database maintained by the package)
 load_gadm <- function(countries = NULL,dbname = default_database_filename()){
