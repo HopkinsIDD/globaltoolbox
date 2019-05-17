@@ -15,27 +15,29 @@
 ## get_metadata(source,metadata)
 ## get_metadata(source,database)
 ## get_metadata(source,metadata,database)
+#' @importFrom RSQLite SQLite
+#' @importFrom DBI dbConnect
+#' @importFrom glue glue_sql
+#' @importFrom RSQLite dbDisconnect
+#' @importFrom DBI dbGetQuery
 get_location_metadata <- function(
   location=NULL,
   source=NULL,
   metadata_names=NULL,
-  dbname = default_database_filename(),
   aliases=TRUE,
-  strict_scope=TRUE
+  strict_scope=TRUE,
+  depth=NA,
+  dbname = default_database_filename()
 ){
-  #' @importFrom RSQLite SQLite
-  #' @importFrom DBI dbConnect
   con <- dbConnect(drv=SQLite(),dbname)
-  #' @importFrom DBI dbGetQuery
-  
   query = "SELECT
     *
   FROM
     (locations
-      INNER JOIN
+      LEFT JOIN
     location_hierarchy
       ON
-        location_hierarchy.descendent_id = location_id
+        locations.id = location_hierarchy.descendent_id
     ) INNER JOIN
     location_aliases
       ON
@@ -59,26 +61,29 @@ get_location_metadata <- function(
     if(strict_scope){
       query = paste(query,'AND depth > 0')
     }
+    if(!is.na(depth)){
+      query = paste(query,'AND depth <= {depth}')
+    }
   }
   #' @importFrom glue glue_sql
-  results <- dbGetQuery(con,glue_sql(.con=con,query))
-  results$depth_from_source = results$depth
-  results$depth = NULL
-  metadata = lapply(results$metadata,process_single_metadata_frame)
+  rc <- dbGetQuery(con,glue_sql(.con=con,query))
+  rc$depth_from_source = rc$depth
+  rc$depth = NULL
+  metadata = lapply(rc$metadata,process_single_metadata_frame)
   #' @importFrom dplyr bind_rows
-  metadata.frame <- bind_rows(lapply(results$metadata,process_single_metadata_frame)) 
+  metadata.frame <- bind_rows(lapply(rc$metadata,process_single_metadata_frame)) 
   #' @importFrom dplyr bind_cols
-  results <- bind_cols(
-    results[,-which(colnames(results) %in% c('standard','metadata'))],
+  rc <- bind_cols(
+    rc[,-which(colnames(rc) %in% c('standard','metadata'))],
     metadata.frame
   )
   if(!is.null(metadata_names)){
     cnames = c('id','name','readable_name',metadata_names,'alias')
-    cnames = cnames[cnames %in% colnames(results)]
-    results = results[,cnames]
+    cnames = cnames[cnames %in% colnames(rc)]
+    rc = rc[,cnames]
   }
   dbDisconnect(con)
-  return(results)
+  return(rc)
 }
 
 
@@ -93,25 +98,39 @@ process_single_metadata_frame <- function(frame){
     return(frame)
 }
 
-get_all_aliases <- function(source,depth,dbname=default_database_filename()){
+#' @export
+#' @importFrom glue glue_sql
+get_all_aliases <- function(
+  location=NULL,
+  source=NULL,
+  metadata_names=NULL,
+  aliases=TRUE,
+  strict_scope=TRUE,
+  depth=NA,
+  dbname = default_database_filename()
+){
   con <- dbConnect(drv=SQLite(),dbname)
   query = "SELECT
-    name,alias,location_id
+    name,alias,readable_name,location_id as id,max(location_hierarchy.depth) as depth_from_source
   FROM
     (locations
-      INNER JOIN
+      LEFT JOIN
     location_hierarchy
       ON
-        location_hierarchy.descendent_id = location_id
+        locations.id = location_hierarchy.descendent_id
     ) INNER JOIN
     location_aliases
       ON
       locations.id = location_aliases.location_id
     WHERE
       1=1"
-  if(is.null(source)){
-    query = paste(query,'AND depth = 0')
-  } else {
+   if(!is.null(location)){
+      query = paste(query,"AND alias is {location}")
+   }
+  if(!aliases){
+    query = paste(query,'AND alias is name')
+  }
+  if(!is.null(source)){
     parent_id = as.numeric(source)
     if(is.na(parent_id)){
       parent_id = get_database_id_from_name(name=source,dbname=dbname)
@@ -120,8 +139,12 @@ get_all_aliases <- function(source,depth,dbname=default_database_filename()){
     if(strict_scope){
       query = paste(query,'AND depth > 0')
     }
+    if(!is.na(depth)){
+      query = paste(query,'AND depth <= {depth}')
+    }
   }
-  results <- dbGetQuery(con,glue_sql(.con=con,query))
+  query = paste(query,'GROUP BY name,alias,location_id')
+  rc <- dbGetQuery(con,glue_sql(.con=con,query))
   dbDisconnect(con)
-  return(results)
+  return(rc)
 }

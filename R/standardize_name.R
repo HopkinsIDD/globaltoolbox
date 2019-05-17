@@ -18,7 +18,15 @@
 #' @importFrom stringr str_replace_all
 #' @import dplyr
 #' @export
-standardize_name <- function(location, scope=NULL, metadata, dbname=NULL, strict_scope=TRUE, ...){
+standardize_name <- function(
+  location,
+  scope=NULL,
+  metadata,
+  dbname=NULL,
+  strict_scope=TRUE,
+  depth=NA,
+  ...
+){
   
   ## # TEMPORARY -- draw from country_names and country_codes data
   ## data('country_names',package='globaltoolbox')
@@ -30,27 +38,25 @@ standardize_name <- function(location, scope=NULL, metadata, dbname=NULL, strict
   if (is.null(dbname)){
     dbname <- default_database_filename()
   }
+
+  location_clean <- standardize_location_strings(location)
+
+  try({
+    rc <- sapply(location_clean,database_standardize_name,source=scope,dbname=dbname)
+    if(length(rc) == length(location)){return(rc)}
+  },silent=T)
   ## limit database and alias_database to scope and metadata
-  db_scoped <- get_location_metadata(
+  db_scoped <- get_all_aliases(
     source=scope,
     dbname=dbname,
     aliases=TRUE,
+    depth=depth,
     strict_scope=strict_scope
   )
 
-  # why is this in here????
-  # JK: This was here because constructing db_scoped is resource intensive, and we don't want to construct it
-  #     if the user already provided a standardized name
-  # try({
-  #   rc <- database_standardize_name(location,scope,dbname=dbname)
-  #   if(length(rc) == 1){return(rc)}
-  # },silent=T)
-  
-  
   ## Clean Locations and aliases to match
   ## - cleaning here will be faster than for each match (maybe?)
-  location_clean <- standardize_location_strings(location)
-  names_b_data = db_scoped %>% select(id, name=alias)
+  names_b_data = db_scoped %>% dplyr::select(id, name=name,depth=depth_from_source)
   names_b_data$name <- standardize_location_strings(names_b_data$name)
 
   ## Run the "match_names" function to match. 
@@ -64,9 +70,8 @@ standardize_name <- function(location, scope=NULL, metadata, dbname=NULL, strict
   
   # If no matches, try the readable_name
   if (sum(is.na(matches_))>0){
-    names_b_data = db_scoped %>% select(id, name=readable_name)
-    names_b_data$name = tolower(iconv(names_b_data$name, from = 'UTF-8', to = 'ASCII//TRANSLIT'))
-    names_b_data$name <- str_replace_all(names_b_data$name, "[[:punct:]]", "") # remove all punctuation
+    names_b_data = db_scoped %>% dplyr::select(id, name=readable_name,depth=depth_from_source)
+    names_b_data$name <- standardize_location_strings(names_b_data$name)
     
     matches_[is.na(matches_)] <- sapply(location_clean[is.na(matches_)], 
                                          match_names, 
@@ -75,9 +80,8 @@ standardize_name <- function(location, scope=NULL, metadata, dbname=NULL, strict
                     }
   # If no matches, try the Aliases
   if (sum(is.na(matches_))>0){
-    names_b_data = db_scoped %>% select(id, name=alias)
-    names_b_data$name = tolower(iconv(names_b_data$name, from = 'UTF-8', to = 'ASCII//TRANSLIT'))
-    names_b_data$name <- str_replace_all(names_b_data$name, "[[:punct:]]", "") # remove all punctuation
+    names_b_data = db_scoped %>% dplyr::select(id, name=alias,depth=depth_from_source)
+    names_b_data$name <- standardize_location_strings(names_b_data$name)
     
     matches_[is.na(matches_)] <- sapply(location_clean[is.na(matches_)], 
                                         match_names, 
@@ -168,6 +172,8 @@ match_names <- function(name_a, names_b_data,
     dists_best <- dists[best_,] 
     dists_best <- dists_best[order(dists_best$score_sums),] # Order by score sum
     dists_best <- dists_best[!duplicated(dists_best$id),] # remove duplicate ids
+    ## Take the score of minimal depth
+    dists_best <- dists_best[dists_best$depth == min(dists_best$depth),]
     
     ## if still more than 1 best match, return NA or the distance matrix
     if (nrow(dists_best)>1){
@@ -207,7 +213,9 @@ create_standardized_name <- function(name, parent=NA, check_aliases=FALSE, dbnam
     return(standardize_location_strings(name))
   }
   if (length(parent)==1 && is.na(parent)){
-    return("Need to specify parent")
+    ## JK: Turned these into stops someone not looking at the results
+    ##     might not notice the function failed
+    stop("Need to specify parent")
   }
   
   ## Load database
@@ -225,7 +233,7 @@ create_standardized_name <- function(name, parent=NA, check_aliases=FALSE, dbnam
   #     I think it makes sense to use sapply here
   std_parent_name = sapply(parent, function(x) tryCatch(database_standardize_name(name=x, 
                                                            dbname=dbname,
-                                                          standard=TRUE,
+                                                          aliases=FALSE,
                                                           source=NULL), error=function(err) NA)
   )
   parents_nonstd <- is.na(std_parent_name)
@@ -234,7 +242,7 @@ create_standardized_name <- function(name, parent=NA, check_aliases=FALSE, dbnam
   if (sum(parents_nonstd)>0){
     std_parent_name[parents_nonstd] = sapply(parent[parents_nonstd], function(x) tryCatch(database_standardize_name(name=x, 
                                                                                     dbname=dbname,
-                                                                                    standard=FALSE,
+                                                                                    aliases = TRUE,
                                                                                     source=NULL), error=function(err) NA)
     )
     parents_nonstd <- is.na(std_parent_name)
@@ -256,7 +264,7 @@ create_standardized_name <- function(name, parent=NA, check_aliases=FALSE, dbnam
   #     for (i in 1:length(parent_levels)){
   #       parent_scoped = tryCatch(standardize_name(location=parent_levels[i], 
   #                                  dbname=dbname,
-  #                                  standard=FALSE,
+  #                                  aliases = TRUE,
   #                                  source=parent_scoped), error=function(err) NA)
   #       parent_scoped_vector <- c(parent_scoped_vector, parent_scoped)
   #     }
@@ -302,7 +310,6 @@ create_standardized_name <- function(name, parent=NA, check_aliases=FALSE, dbnam
     std_name <- standardize_name(location=name, scope=ifelse(is.na(std_parent_name), NULL, std_parent_name), dbname=dbname,strict_scope=TRUE)
     if(length(name) > 1){stop("This is not vectorized")}
     if (!is.na(std_name)){
-        browser()
       stop(paste("The location",name,"already has a standardized entry in the database"))
     } 
   }
@@ -316,7 +323,9 @@ create_standardized_name <- function(name, parent=NA, check_aliases=FALSE, dbnam
   if(any(!is.na(std_parent_name))){
     return(standardize_location_strings(paste(std_parent_name, name, sep="::")))
   } else {
-    return("Could not identify the parent. Please recheck.")
+    ## JK: Turned these into stops someone not looking at the results
+    ##     might not notice the function failed
+    stop("Could not identify the parent. Please recheck.")
   }
 }
 
@@ -359,6 +368,10 @@ standardize_name_local <- function(location, scope=NULL, metadata,
   ## # data('country_codes',package='globaltoolbox')
   ## # database_tmp <- country_codes
 
+  try({
+    rc <- sapply(location,database_standardize_name,source=scope,dbname=dbname)
+    if(length(rc) == length(location)){return(rc)}
+  },silent=T)
   ## limit database and alias_database to scope and metadata
   db_scoped <- metadata
   if (!is.null(scope)){
@@ -368,10 +381,6 @@ standardize_name_local <- function(location, scope=NULL, metadata,
     db_scoped <- db_scoped[db_scoped$type==type,]
   }
   
-  # try({
-  #   rc <- database_standardize_name(location,scope,dbname=dbname)
-  #   if(length(rc) == 1){return(rc)}
-  # })
   
   ## Clean Locations and aliases to match
   ## - cleaning here will be faster than for each match (maybe?)
@@ -430,13 +439,13 @@ get_common_name_local <- function(location, scope=NULL, metadata,
 standardize_location_strings <- function(location_name){
   if(length(location_name) == 0){return(location_name)}
   location_tmp = location_name
-  location_tmp = gsub('|','VERTCHARACTER',location_tmp,fixed=TRUE)
-  location_tmp = gsub('-','DASHCHARACTER',location_tmp,fixed=TRUE)
-  location_tmp = gsub('::','DOUBLECOLONCHARACTER',location_tmp,fixed=TRUE)
+  location_tmp = gsub('|','vertcharacter',location_tmp,fixed=TRUE)
+  location_tmp = gsub('-','dashcharacter',location_tmp,fixed=TRUE)
+  location_tmp = gsub('::','doublecoloncharacter',location_tmp,fixed=TRUE)
   location_tmp = standardize_string(location_tmp)
-  location_tmp = gsub('DOUBLECOLONCHARACTER','::',location_tmp,fixed=TRUE)
-  location_tmp = gsub('DASHCHARACTER','-',location_tmp,fixed=TRUE)
-  location_tmp = gsub('VERTCHARACTER','|',location_tmp,fixed=TRUE)
+  location_tmp = gsub('doublecoloncharacter','::',location_tmp,fixed=TRUE)
+  location_tmp = gsub('dashcharacter','-',location_tmp,fixed=TRUE)
+  location_tmp = gsub('vertcharacter','|',location_tmp,fixed=TRUE)
   while(any(
     grepl(pattern = '::$',location_tmp) ||
     grepl(pattern = '::NA$',location_tmp) ||
@@ -480,5 +489,3 @@ standardize_string <- function(string){
   string[sapply(string,length) == 0] = ''
   return(string)
 }
-
-

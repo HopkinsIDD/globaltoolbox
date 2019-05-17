@@ -25,6 +25,8 @@ country_aliases.csv <- system.file(
 country_aliases <- read.csv(country_aliases.csv)
 all_countries <- levels(country_aliases$country_code)
 
+error_messages = c('')
+
 alias_ISO_columns = c(
   "HASC",
   "VARNAME",
@@ -37,6 +39,7 @@ alias_ISO_columns = c(
 
 
 for(ISO_A1 in all_countries){
+  print(ISO_A1)
   destination <- tempfile(fileext='.rds')
   
   # Download GADM for the country
@@ -113,6 +116,11 @@ for(ISO_A1 in all_countries){
   toggle = TRUE
   ISO_level = 0
   while(toggle){
+    if(length(error_messages) > 11){warning("Over 10 errors")}
+    if(length(error_messages) > 101){warning("Over 100 errors")}
+    if(length(error_messages) > 1001){warning("Over 1000 errors")}
+    if(length(error_messages) > 10001){warning("Over 10000 errors")}
+    if(length(error_messages) > 100001){warning("Over 100000 errors")}
     try({
       ISO_level = ISO_level + 1
       website <- paste(
@@ -129,7 +137,15 @@ for(ISO_A1 in all_countries){
       country_data <- st_as_sf(readRDS(destination))
       country_data$type = paste0('ISO_A2_L',ISO_level)
       country_data$depth = ISO_level
+      parent_name = c()
+      for(i in 0:(ISO_level - 1)){
+        ## Remove data about containing countries
+        parent_name = paste(parent_name,country_data[[paste('NAME',i,sep='_')]],sep='::')
+      }
+      parent_name = gsub('^::','',parent_name)
+      country_data$standardized_parent_name = telescoping_standardize(parent_name,dbname=dbname)
       for(row in 1:nrow(country_data)){
+        print(paste(ISO_A1,"level",ISO_level,"location",row,"/",nrow(country_data)))
         tmp_data = country_data[row,]
         metadata_frame <- as.data.frame(tmp_data)
         metadata_frame <- metadata_frame[,!(colnames(metadata_frame) %in% paste(alias_ISO_columns,ISO_level,sep='_'))]
@@ -140,14 +156,17 @@ for(ISO_A1 in all_countries){
           metadata_frame <- metadata_frame[,!grepl(paste0('_',i,'$'),colnames(metadata_frame))]
           colnames(metadata_frame) = gsub(paste0('_',i,'$'),'',colnames(metadata_frame))
         }
-        parent_name = tmp_data[[paste('NAME',ISO_level-1,sep='_')]]
-        parent_name = telescoping_standardize(parent_name)
-        descendent_id <- globaltoolbox:::database_add_descendent(
+        tryCatch({
+            descendent_id <- globaltoolbox:::database_add_descendent(
                                            dbname=dbname,
                                            metadata=metadata_frame,
-                                           standardized_name=parent_name,
+                                           standardized_name=tmp_data$standardized_parent_name,
                                            readable_descendent_name = tmp_data[[paste('NAME',ISO_level,sep='_')]] 
                                          )
+        },
+        error = function(e){
+            error_messages <<- c(error_messages,paste(ISO_A1,"level",ISO_level,"location",row,"/",nrow(country_data),e$message))
+        })
         tmp_alias_ISO_columns = paste(alias_ISO_columns[
           paste(alias_ISO_columns,ISO_level,sep='_') %in%
           colnames(country_data)
