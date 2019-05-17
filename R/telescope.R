@@ -1,6 +1,13 @@
+
+#' @name create_location_sf
+#' @title match_names
+#' @description 
+#' @param location_name Location name to generate shapefiles for.
+#' @param thorough Logical, whether to include all levels of the location...
+#' @return Array of location shapefiles???
+#' @import dplyr
 #' @export
-#' @export
-create_location_sf <- function(location_name,thorough=FALSE){
+create_location_sf <- function(location_name, thorough=FALSE){
   original_location_name = location_name
   location_name = standardize_location_strings(location_name)
   location_array = strsplit(location_name,split='::')
@@ -58,13 +65,11 @@ create_location_sf <- function(location_name,thorough=FALSE){
     }
   }
   ## We will use this for finding the shapefiles.  They will eventually be part of this object
-  #' @importFrom dplyr filter
-  #' @importFrom reshape2 melt
-  ungrouped_shapefiles <- dplyr::filter(melt(location_array),!is.na(value))
+  ungrouped_shapefiles <- dplyr::filter(reshape2::melt(location_array),!is.na(value))
   ungrouped_shapefiles$value = as.character(ungrouped_shapefiles$value)
   names(ungrouped_shapefiles)[1:4] <- c('ISO_level','arg_idx','pipe_idx','thr_idx')
   ungrouped_shapefiles <- ungrouped_shapefiles %>%
-    group_by(arg_idx,pipe_idx,thr_idx) %>%
+    dplyr::group_by(arg_idx,pipe_idx,thr_idx) %>%
     do({
       tmp = .
       tmp$ISO_A2_level = max(tmp$ISO_level)
@@ -72,13 +77,13 @@ create_location_sf <- function(location_name,thorough=FALSE){
     })
   
   #' @importFrom tidyr spread
-  ungrouped_shapefiles <- spread(ungrouped_shapefiles,key=ISO_level,value=value,drop=T)
+  ungrouped_shapefiles <- dplyr::spread(ungrouped_shapefiles,key=ISO_level,value=value,drop=T)
   names(ungrouped_shapefiles)[5] <- 'ISO_A1'
   if(ncol(ungrouped_shapefiles) > 5){
       names(ungrouped_shapefiles)[6:ncol(ungrouped_shapefiles)] <- paste('ISO_A2_L',as.numeric(names(ungrouped_shapefiles)[6:ncol(ungrouped_shapefiles)]),sep='')
   }
   if(thorough){
-    ungrouped_shapefiles = ungrouped_shapefiles %>% filter(thr_idx > 0)
+    ungrouped_shapefiles = ungrouped_shapefiles %>% dplyr::filter(thr_idx > 0)
   }
   ungrouped_shapefiles$location_name = paste0(apply(ungrouped_shapefiles[,5:ncol(ungrouped_shapefiles)],1,function(x){paste(na.omit(x),collapse='::')}))
   # ungrouped_shapefiles$location_full = location_name[ungrouped_shapefiles$arg_idx]
@@ -94,8 +99,15 @@ create_location_sf <- function(location_name,thorough=FALSE){
 # ADD ARGUMENTS
 
 
+#' @name telescoping_standardize
+#' @title telescoping_standardize
+#' @description 
+#' @param location_name Location name to generate shapefiles for.
+#' @param dbname Filename of the database. Default will use the package-defined name.
+#' @return Location standized name???
+#' @import dplyr
 #' @export
-telescoping_standardize <- function(location_name,dbname=default_database_filename()){
+telescoping_standardize <- function(location_name, dbname=default_database_filename()){
   location_name = standardize_location_strings(location_name)
   location_sf = create_location_sf(location_name,thorough=TRUE)
   all_names = list()
@@ -121,7 +133,7 @@ telescoping_standardize <- function(location_name,dbname=default_database_filena
         ])
         standard_names = standardize_name(gsub('.*:','',nonstandard_names),scope=scope,dbname=dbname)
       }
-      names = setNames(standard_names,nonstandard_names)
+      names = stats::setNames(standard_names,nonstandard_names)
       if(level <= length(all_names)){
         all_names[[level]] = c(all_names[[level]],names)
       } else {
@@ -131,11 +143,11 @@ telescoping_standardize <- function(location_name,dbname=default_database_filena
   }
   all_names = unlist(all_names)
   location_sf$standardized_name = all_names[location_sf$location_name]
-  location_sf = group_by(location_sf,arg_idx,pipe_idx)
-  location_sf = summarize(location_sf,standardized_name=ifelse(any(is.na(standardized_name)),as.character(NA),standardized_name[which.max(thr_idx)]))
-  location_sf = ungroup(location_sf)
-  location_sf = group_by(location_sf,arg_idx)
-  location_sf = summarize(location_sf,standardized_name=ifelse(any(is.na(standardized_name)),as.character(NA),paste(standardized_name,collapse='|')))
-  location_sf = ungroup(location_sf)
+  location_sf = dplyr::group_by(location_sf,arg_idx,pipe_idx)
+  location_sf = dplyr::summarize(location_sf,standardized_name=ifelse(any(is.na(standardized_name)),as.character(NA),standardized_name[which.max(thr_idx)]))
+  location_sf = dplyr::ungroup(location_sf)
+  location_sf = dplyr::group_by(location_sf,arg_idx)
+  location_sf = dplyr::summarize(location_sf,standardized_name=ifelse(any(is.na(standardized_name)),as.character(NA),paste(standardized_name,collapse='|')))
+  location_sf = dplyr::ungroup(location_sf)
   return(location_sf$standardized_name)
 }

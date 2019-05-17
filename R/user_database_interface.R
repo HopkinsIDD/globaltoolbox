@@ -5,8 +5,6 @@
 #' @param standardized_name The standardized name of the parent of the location to add.
 #' @param dbname The name of the database.  Defaults to the database associated with the package
 #' @description Add a new location as a descendent of another location and update the location hierarchy.
-#' @importFrom RSQLite SQLite
-#' @importFrom DBI dbConnect
 #' @export
 database_add_descendent <- function(
   standardized_name,
@@ -23,7 +21,7 @@ database_add_descendent <- function(
     dbname=dbname
   )
 
-  con <- dbConnect(drv=SQLite(),dbname)
+  con <- DBI::dbConnect(drv=RSQLite::SQLite(),dbname)
   if(!is.null(standardized_name)){
     parent_id = get_database_id_from_name(name=standardized_name,dbname=dbname)
   }
@@ -58,11 +56,9 @@ database_add_descendent <- function(
               location_hierarchy
             WHERE
               descendent_id == {parent_id}"
-    #' @importFrom DBI dbSendQuery dbClearResult
-    #' @importFrom glue glue_sql
-    dbClearResult(dbSendQuery(con,glue_sql(.con=con,query)))
+    DBI::dbClearResult(DBI::dbSendQuery(con, glue::glue_sql(.con=con,query)))
   }
-  dbDisconnect(con)
+  RSQLite::dbDisconnect(con)
   return(descendent_id)
 }
 
@@ -74,10 +70,6 @@ database_add_descendent <- function(
 #' @param standard Whether or not to check aliases.
 #' @param depth How deep under the source should the search extent. (Not yet implemented)
 #' @param dbname The name of the database.  Defaults to the database associated with the package
-#' @importFrom RSQLite SQLite
-#' @importFrom DBI dbConnect
-#' @importFrom glue glue_sql
-#' @importFrom RSQLite dbDisconnect
 #' @export
 database_standardize_name <- function(
   name,
@@ -87,7 +79,7 @@ database_standardize_name <- function(
   depth=NA,
   dbname = default_database_filename()
 ){
-  con <- dbConnect(drv=SQLite(),dbname)
+  con <- DBI::dbConnect(drv=RSQLite::SQLite(),dbname)
   query = "SELECT
     name
   FROM
@@ -120,13 +112,12 @@ database_standardize_name <- function(
       query = paste(query,'AND depth <= {depth}')
     }
   }
-  rc <- dbGetQuery(con,glue_sql(.con=con,query))
-  #' @importFrom dplyr filter
-  rc <- filter(rc,!duplicated(name))
+  rc <- DBI::dbGetQuery(con,glue::glue_sql(.con=con,query))
+  rc <- dplyr::filter(rc,!duplicated(name))
 
   if(length(rc$name) != 1){
     stop(paste("Ambiguous location",name,"has",nrow(rc),"location_ids"))
   }
-  dbDisconnect(con)
+  RSQLite::dbDisconnect(con)
   return(rc$name)
 }

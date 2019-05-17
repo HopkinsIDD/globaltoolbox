@@ -3,6 +3,7 @@
 ## data('country_codes',package='globaltoolbox')
 
 
+
 #' @name standardize_name
 #' @title standardize_name
 #' @description Using various methods, matches the inputted location name to a location and returns a standardized code
@@ -14,8 +15,6 @@
 #' @param database database to pull location information from. If NULL, it will pull from the database included in the package.
 #' @param return_match_score logical, whether to return the matching score. Score reported on 0-1 scale, with 1 being a perfect match.
 #' @return standardized database code which can be used to identify other data
-#' @importFrom stringdist stringdist
-#' @importFrom stringr str_replace_all
 #' @import dplyr
 #' @export
 standardize_name <- function(
@@ -97,7 +96,6 @@ standardize_name <- function(
 
 
 
-
 #' @name match_names
 #' @title match_names
 #' @description Using the stringdist package, matches the inputted location name to a location and returns an index
@@ -108,8 +106,6 @@ standardize_name <- function(
 #' @param clean_a Logical; whether to clean and standardize `name_a`.
 #' @param clean_b Logical; whether to clean and standardize the names from `names_b_data`.
 #' @return an index of the best match of name_a from names_b_data.
-#' @importFrom stringdist stringdist
-#' @importFrom stringr str_replace_all
 #' @export
 match_names <- function(name_a, names_b_data, 
                         return_match_scores=FALSE,
@@ -133,7 +129,7 @@ match_names <- function(name_a, names_b_data,
   dists <- as.data.frame(matrix(NA, nrow=length(names_b), ncol=length(methods), 
                                 dimnames=list(names_b, methods)))
   for (j in 1:length(methods)){
-    dists[,j]  <- suppressWarnings(stringdist(name_a, names_b, method=methods[j]))
+    dists[,j]  <- suppressWarnings(stringdist::stringdist(name_a, names_b, method=methods[j]))
   }
   dists <- data.frame(names_b_data, 
                       names_clean=names_b,
@@ -192,8 +188,6 @@ match_names <- function(name_a, names_b_data,
 
 
 
-
-
 #' @name create_standardized_name
 #' @title create_standardized_name
 #' @description Using the stringdist package, matches the inputted location name to a location and returns an index
@@ -203,7 +197,6 @@ match_names <- function(name_a, names_b_data,
 #' @param check_aliases Logical; whether to check aliases of name.
 #' @param dbname name of database in which name is trying to match.
 #' @return an index of the best match of name_a from names_b_data.
-#' @importFrom stringr str_replace_all str_to_title
 #' @export
 create_standardized_name <- function(name, parent=NA, check_aliases=FALSE, dbname=NULL,verbose=FALSE){
   
@@ -337,12 +330,6 @@ create_standardized_name <- function(name, parent=NA, check_aliases=FALSE, dbnam
 
 
 
-
-
-
-
-
-
 #' @name standardize_name_local
 #' @title standardize_name_local
 #' @description Using various methods, matches the inputted location name to a location and returns a standardized code
@@ -354,8 +341,6 @@ create_standardized_name <- function(name, parent=NA, check_aliases=FALSE, dbnam
 #' @param database database to pull location information from. If NULL, it will pull from the database included in the package.
 #' @param return_match_score logical, whether to return the matching score. Score reported on 0-1 scale, with 1 being a perfect match.
 #' @return standardized database code which can be used to identify other data
-#' @importFrom stringdist stringdist
-#' @importFrom stringr str_replace_all
 #' @import dplyr
 #' @export
 standardize_name_local <- function(location, scope=NULL, metadata, 
@@ -380,7 +365,6 @@ standardize_name_local <- function(location, scope=NULL, metadata,
   if (exists("type")){
     db_scoped <- db_scoped[db_scoped$type==type,]
   }
-  
   
   ## Clean Locations and aliases to match
   ## - cleaning here will be faster than for each match (maybe?)
@@ -416,8 +400,6 @@ standardize_name_local <- function(location, scope=NULL, metadata,
 #' @param database database to pull location information from. If NULL, it will pull from the database included in the package.
 #' @param return_match_score logical, whether to return the matching score. Score reported on 0-1 scale, with 1 being a perfect match.
 #' @return standardized database code which can be used to identify other data
-#' @importFrom stringdist stringdist
-#' @importFrom stringr str_replace_all
 #' @import dplyr
 #' @export
 get_common_name_local <- function(location, scope=NULL, metadata, 
@@ -435,6 +417,11 @@ get_common_name_local <- function(location, scope=NULL, metadata,
 
 
 
+#' @name standardize_location_strings
+#' @title standardize_location_strings
+#' @description Standardize each level of a string name. This is used by others functions that standardize and match names.
+#' @param location_name location name to match
+#' @return standardized string of the location name.
 #' @export
 standardize_location_strings <- function(location_name){
   if(length(location_name) == 0){return(location_name)}
@@ -458,6 +445,14 @@ standardize_location_strings <- function(location_name){
   return(location_tmp)
 }
 
+
+
+#' @name standardize_string
+#' @title standardize_string
+#' @description Standardize indivual levels of a location of grouped names, separated by "|", for example "DC|Maryland". 
+#' This is used by standardize_location_strings.
+#' @param string string location name to standardize.
+#' @return standardized string of the location names.
 #' @export
 ranked_encodings = c('UTF-8','LATIN1')
 standardize_string <- function(string){
