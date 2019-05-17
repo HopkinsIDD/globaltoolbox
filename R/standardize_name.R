@@ -1,7 +1,7 @@
 #' @include database_management.R get_location_data.R
 ## data('country_names',package='globaltoolbox')
 ## data('country_codes',package='globaltoolbox')
-## 
+
 
 #' @name standardize_name
 #' @title standardize_name
