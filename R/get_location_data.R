@@ -15,11 +15,6 @@
 ## get_metadata(source,metadata)
 ## get_metadata(source,database)
 ## get_metadata(source,metadata,database)
-#' @importFrom RSQLite SQLite
-#' @importFrom DBI dbConnect
-#' @importFrom glue glue_sql
-#' @importFrom RSQLite dbDisconnect
-#' @importFrom DBI dbGetQuery
 get_location_metadata <- function(
   location=NULL,
   source=NULL,
@@ -29,7 +24,7 @@ get_location_metadata <- function(
   depth=NA,
   dbname = default_database_filename()
 ){
-  con <- dbConnect(drv=SQLite(),dbname)
+  con <- DBI::dbConnect(drv=RSQLite::SQLite(),dbname)
   query = "SELECT
     *
   FROM
@@ -65,15 +60,13 @@ get_location_metadata <- function(
       query = paste(query,'AND depth <= {depth}')
     }
   }
-  #' @importFrom glue glue_sql
-  rc <- dbGetQuery(con,glue_sql(.con=con,query))
+
+  rc <- DBI::dbGetQuery(con,glue::glue_sql(.con=con,query))
   rc$depth_from_source = rc$depth
   rc$depth = NULL
   metadata = lapply(rc$metadata,process_single_metadata_frame)
-  #' @importFrom dplyr bind_rows
-  metadata.frame <- bind_rows(lapply(rc$metadata,process_single_metadata_frame)) 
-  #' @importFrom dplyr bind_cols
-  rc <- bind_cols(
+  metadata.frame <- dplyr::bind_rows(lapply(rc$metadata,process_single_metadata_frame)) 
+  rc <- dplyr::bind_cols(
     rc[,-which(colnames(rc) %in% c('standard','metadata'))],
     metadata.frame
   )
@@ -82,26 +75,22 @@ get_location_metadata <- function(
     cnames = cnames[cnames %in% colnames(rc)]
     rc = rc[,cnames]
   }
-  dbDisconnect(con)
+  RSQLite::dbDisconnect(con)
   return(rc)
 }
 
 
 
 process_single_metadata_frame <- function(frame){
-    #' @importFrom jsonlite fromJSON
     if(is.na(frame)){return(data.frame(missing=TRUE))}
-    frame = as.data.frame(fromJSON(frame))
-    #' @importFrom dplyr mutate_all
-    #' @importFrom dplyr funs
-    frame = mutate_all(frame,funs(as.character(.)))
+    frame = as.data.frame(jsonlite::fromJSON(frame))
+    frame = dplyr::mutate_all(frame, dplyr::funs(as.character(.)))
     return(frame)
 }
 
 
 
 #' @export
-#' @importFrom glue glue_sql
 get_all_aliases <- function(
   location=NULL,
   source=NULL,
@@ -111,7 +100,7 @@ get_all_aliases <- function(
   depth=NA,
   dbname = default_database_filename()
 ){
-  con <- dbConnect(drv=SQLite(),dbname)
+  con <- DBI::dbConnect(drv=RSQLite::SQLite(),dbname)
   query = "SELECT
     name,alias,readable_name,location_id as id,max(location_hierarchy.depth) as depth_from_source
   FROM
@@ -146,7 +135,7 @@ get_all_aliases <- function(
     }
   }
   query = paste(query,'GROUP BY name,alias,location_id')
-  rc <- dbGetQuery(con,glue_sql(.con=con,query))
-  dbDisconnect(con)
+  rc <- DBI::dbGetQuery(con,glue::glue_sql(.con=con,query))
+  RSQLite::dbDisconnect(con)
   return(rc)
 }

@@ -360,7 +360,7 @@ standardize_name_local <- function(location, scope=NULL, metadata,
   ## limit database and alias_database to scope and metadata
   db_scoped <- metadata
   if (!is.null(scope)){
-    db_scoped <- db_scoped %>% filter(grepl(scope, id) & id!=scope)
+    db_scoped <- db_scoped %>% dplyr::filter(grepl(scope, id) & id!=scope)
   }
   if (exists("type")){
     db_scoped <- db_scoped[db_scoped$type==type,]
@@ -369,7 +369,7 @@ standardize_name_local <- function(location, scope=NULL, metadata,
   ## Clean Locations and aliases to match
   ## - cleaning here will be faster than for each match (maybe?)
   location_clean <- standardize_location_strings(location)
-  names_b_data = db_scoped %>% select(id, name)
+  names_b_data = db_scoped %>% dplyr::select(id, name)
   names_b_data$name <- standardize_location_strings(names_b_data$name)
   
   ## Run the "match_names" function to match. 
@@ -400,7 +400,6 @@ standardize_name_local <- function(location, scope=NULL, metadata,
 #' @param database database to pull location information from. If NULL, it will pull from the database included in the package.
 #' @param return_match_score logical, whether to return the matching score. Score reported on 0-1 scale, with 1 being a perfect match.
 #' @return standardized database code which can be used to identify other data
-#' @import dplyr
 #' @export
 get_common_name_local <- function(location, scope=NULL, metadata, 
                                   return_match_scores=FALSE, ...){
