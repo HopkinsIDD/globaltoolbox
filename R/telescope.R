@@ -76,8 +76,7 @@ create_location_sf <- function(location_name, thorough=FALSE){
       tmp
     })
   
-  #' @importFrom tidyr spread
-  ungrouped_shapefiles <- dplyr::spread(ungrouped_shapefiles,key=ISO_level,value=value,drop=T)
+  ungrouped_shapefiles <- tidyr::spread(ungrouped_shapefiles,key=ISO_level,value=value,drop=T)
   names(ungrouped_shapefiles)[5] <- 'ISO_A1'
   if(ncol(ungrouped_shapefiles) > 5){
       names(ungrouped_shapefiles)[6:ncol(ungrouped_shapefiles)] <- paste('ISO_A2_L',as.numeric(names(ungrouped_shapefiles)[6:ncol(ungrouped_shapefiles)]),sep='')
