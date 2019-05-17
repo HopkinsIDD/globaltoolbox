@@ -1,10 +1,10 @@
 #' @name database_add_descendent
+#' @title database_add_descendent
+#' @description Add a new location as a descendent of another location and update the location hierarchy.
 #' @include database_management.R standardize_name.R
-#' @description Add a new location to the database as a descendent of another region.
 #' @param redable_descendent_name The human readable name of the location to add.
 #' @param standardized_name The standardized name of the parent of the location to add.
 #' @param dbname The name of the database.  Defaults to the database associated with the package
-#' @description Add a new location as a descendent of another location and update the location hierarchy.
 #' @export
 database_add_descendent <- function(
   standardized_name,

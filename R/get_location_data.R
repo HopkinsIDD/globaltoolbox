@@ -1,4 +1,5 @@
 #' @name get_location_metadata
+#' @title get_location_metadata
 #' @include database_management.R
 #' @description Pull metadata associated with a particular location or set of locations
 #' @param location The name of the location to search for.  If there are multiple matches, all will be returned.  If this is NULL, every location below the source will be returned.

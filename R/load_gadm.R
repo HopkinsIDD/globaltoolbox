@@ -1,7 +1,11 @@
-#' @export
+#' @name load_gadm
+#' @title load_gadm
+#' @description Build database of locations from online GADM data repository
 #' @param countries The set of countries to load gadm information into the database for
 #' @param dbname The name of the database file (there is a default database maintained by the package)
-#' @importFrom sf st_as_sf
+#' @return standardized database built from GADM data
+#' @import dplyr
+#' @export
 load_gadm <- function(countries = NULL,dbname = default_database_filename()){
   country_aliases.csv <- system.file(
     "extdata",
@@ -47,7 +51,7 @@ load_gadm <- function(countries = NULL,dbname = default_database_filename()){
     
     # if GADM file downloaded correctly process it
     if(file.exists(destination)){
-      country_data <- st_as_sf(readRDS(destination))
+      country_data <- sf::st_as_sf(readRDS(destination))
       country_data$type = 'ISO_A1'
       country_data$depth = 0
       metadata_frame <- as.data.frame(country_data)
@@ -123,7 +127,7 @@ load_gadm <- function(countries = NULL,dbname = default_database_filename()){
         download.file(website,destination,mode='wb')
       },silent=T)
       if(file.exists(destination)){
-        country_data <- st_as_sf(readRDS(destination))
+        country_data <- sf::st_as_sf(readRDS(destination))
         country_data$type = paste0('ISO_A2_L',ISO_level)
         country_data$depth = ISO_level
         parent_name = c()
@@ -219,6 +223,11 @@ load_gadm <- function(countries = NULL,dbname = default_database_filename()){
 
 
 
+#' @name standardize_gadm_lhs_time
+#' @title standardize_gadm_lhs_time
+#' @param x Time to standardize.
+#' @return Standardized time.
+#' @export
 standardize_gadm_lhs_time <- function(x){
   if(x == 'Present'){return(lubridate::now())}
   if(x == 'Unknown'){return(lubridate::ymd('1900-01-01'))}
@@ -235,6 +244,13 @@ standardize_gadm_lhs_time <- function(x){
   return(NA)
 }
 
+
+
+#' @name standardize_gadm_rhs_time
+#' @title standardize_gadm_rhs_time
+#' @param x Time to standardize.
+#' @return Standardized time.
+#' @export
 standardize_gadm_rhs_time <- function(x){
   if(x == 'Present'){return(lubridate::now()+lubridate::years(1))}
   if(x == 'Unknown'){return(lubridate::now()+lubridate::years(1))}

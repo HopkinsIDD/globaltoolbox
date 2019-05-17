@@ -5,6 +5,7 @@ default_database_filename <- function(){
 
 
 #' @name reset_database
+#' @title reset_database
 #' @description Setup the database for holding the location tree and shapefiles.
 #'   Requires postgres database already set up.  For instructions on how to set
 #'   up a postgres database, see https://www.r-bloggers.com/getting-started-with-postgresql-in-r
@@ -22,6 +23,7 @@ reset_database <- function(dbname = default_database_filename()){
 
 
 #' @name create_database
+#' @title create_database
 #' @description Setup the database for holding the location tree and shapefiles.
 #'   Requires postgres database already set up.  For instructions on how to set
 #'   up a postgres database, see https://www.r-bloggers.com/getting-started-with-postgresql-in-r
@@ -143,6 +145,7 @@ database_add_location <- function(
 
 
 #' @name database_add_location_hierarchy
+#' @title database_add_location_hierarchy
 #' @description Wrapper for the sql code to create a relationship in the location hierarchy.  This function should not be called directly in most circumstances.  See database_add_descendent and database_add_alias instead.
 #' @export
 database_add_location_hierarchy <- function(parent_id, descendent_id,depth,dbname = default_database_filename()){
@@ -159,6 +162,7 @@ database_add_location_hierarchy <- function(parent_id, descendent_id,depth,dbnam
 
 
 #' @name database_add_location_geometry
+#' @title database_add_location_geometry
 #' @description Wrapper for the sql code to create a geometry associated with a location at a time period.
 #' @export
 database_add_location_geometry <- function(location_id, time_left, time_right, geometry, dbname = default_database_filename()){
@@ -176,6 +180,7 @@ database_add_location_geometry <- function(location_id, time_left, time_right, g
 
 
 #' @name database_add_location_alias
+#' @title database_add_location_alias
 #' @description Wrapper for the sql code to create an alias for a location.
 #' @export
 database_add_location_alias <- function(location_id, alias,dbname = default_database_filename()){

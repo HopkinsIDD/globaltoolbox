@@ -1,7 +1,7 @@
 
 #' @name create_location_sf
 #' @title match_names
-#' @description 
+#' @description ???
 #' @param location_name Location name to generate shapefiles for.
 #' @param thorough Logical, whether to include all levels of the location...
 #' @return Array of location shapefiles???
@@ -101,7 +101,7 @@ create_location_sf <- function(location_name, thorough=FALSE){
 
 #' @name telescoping_standardize
 #' @title telescoping_standardize
-#' @description 
+#' @description ???
 #' @param location_name Location name to generate shapefiles for.
 #' @param dbname Filename of the database. Default will use the package-defined name.
 #' @return Location standized name???
