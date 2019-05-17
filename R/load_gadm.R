@@ -1,6 +1,7 @@
 #' @export
 #' @param countries The set of countries to load gadm information into the database for
 #' @param dbname The name of the database file (there is a default database maintained by the package)
+#' @importFrom sf st_as_sf
 load_gadm <- function(countries = NULL,dbname = default_database_filename()){
   country_aliases.csv <- system.file(
     "extdata",
@@ -8,7 +9,12 @@ load_gadm <- function(countries = NULL,dbname = default_database_filename()){
     package = "globaltoolbox"
   )
   country_aliases <- read.csv(country_aliases.csv)
-  countries <- levels(country_aliases$country_code)
+  country_aliases <- country_aliases[
+    (country_aliases[,1] == countries )| 
+    (country_aliases[,2] == countries ),
+  ]
+
+  countries <- unique(country_aliases$country_code)
 
   error_messages = c('')
 
@@ -74,7 +80,7 @@ load_gadm <- function(countries = NULL,dbname = default_database_filename()){
           if(!(
             grepl("UNIQUE constraint failed",e$message)
           )){
-            stop("The only way creating an alias should fail is if the alias is already in the database")
+            stop(paste("The only way creating an alias should fail is if the alias is already in the database, but it failed with",e$message))
           }
         })
       }
@@ -206,7 +212,7 @@ load_gadm <- function(countries = NULL,dbname = default_database_filename()){
     }
   }
   for(msg in error_messages){
-    warning(msg)
+    message(msg)
   }
   return()
 }
