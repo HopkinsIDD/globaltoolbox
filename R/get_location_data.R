@@ -1,3 +1,5 @@
+#' @include database_management.R
+
 #' @name get_location_metadata
 #' @title get_location_metadata
 #' @include database_management.R
@@ -8,14 +10,6 @@
 #' @param aliases Whether or not to also pull metadata for aliases of locations.
 #' @param dbname The name of the database to connect to
 #' @export
-## get_location_metadata(location)
-## get_location_metadata(location,metadata)
-## get_location_metadata(location,database)
-## get_location_metadata(location,metadata,database)
-## get_metadata(source)
-## get_metadata(source,metadata)
-## get_metadata(source,database)
-## get_metadata(source,metadata,database)
 get_location_metadata <- function(
   location=NULL,
   source=NULL,
@@ -25,8 +19,8 @@ get_location_metadata <- function(
   depth=NA,
   dbname = default_database_filename()
 ){
-  con <- DBI::dbConnect(drv=RSQLite::SQLite(),dbname)
-  query = "SELECT
+  con <- DBI::dbConnect(drv = RSQLite::SQLite(), dbname)
+  query <- "SELECT
     *
   FROM
     (locations
@@ -41,40 +35,42 @@ get_location_metadata <- function(
     WHERE
       1=1"
    if(!is.null(location)){
-      query = paste(query,"AND alias is {location}")
+      query <- paste(query, "AND alias is {location}")
    }
   if(!aliases){
-    query = paste(query,'AND alias is name')
+    query <- paste(query, 'AND alias is name')
   }
   if(is.null(source)){
-    query = paste(query,'AND depth = 0')
+    query <- paste(query, 'AND depth = 0')
   } else {
-    parent_id = as.numeric(source)
+    parent_id <- as.numeric(source)
     if(is.na(parent_id)){
-      parent_id = get_database_id_from_name(name=source,dbname=dbname)
+      parent_id <-
+        globaltoolbox::get_database_id_from_name(name = source, dbname = dbname)
     }
-    query = paste(query,'AND parent_id = {parent_id}')
+    query <- paste(query, 'AND parent_id = {parent_id}')
     if(strict_scope){
-      query = paste(query,'AND depth > 0')
+      query <- paste(query, 'AND depth > 0')
     }
     if(!is.na(depth)){
-      query = paste(query,'AND depth <= {depth}')
+      query <- paste(query, 'AND depth <= {depth}')
     }
   }
 
-  rc <- DBI::dbGetQuery(con,glue::glue_sql(.con=con,query))
-  rc$depth_from_source = rc$depth
-  rc$depth = NULL
-  metadata = lapply(rc$metadata,process_single_metadata_frame)
-  metadata.frame <- dplyr::bind_rows(lapply(rc$metadata,process_single_metadata_frame)) 
+  rc <- DBI::dbGetQuery(con, glue::glue_sql(.con = con, query))
+  rc$depth_from_source <- rc$depth
+  rc$depth <- NULL
+  metadata.frame <- dplyr::bind_rows(
+    lapply(rc$metadata, process_single_metadata_frame)
+  )
   rc <- dplyr::bind_cols(
-    rc[,-which(colnames(rc) %in% c('standard','metadata'))],
+    rc[, -which(colnames(rc) %in% c('standard', 'metadata'))],
     metadata.frame
   )
   if(!is.null(metadata_names)){
-    cnames = c('id','name','readable_name',metadata_names,'alias')
-    cnames = cnames[cnames %in% colnames(rc)]
-    rc = rc[,cnames]
+    cnames <- c('id', 'name', 'readable_name', metadata_names, 'alias')
+    cnames <- cnames[cnames %in% colnames(rc)]
+    rc <- rc[, cnames]
   }
   RSQLite::dbDisconnect(con)
   return(rc)
@@ -83,13 +79,16 @@ get_location_metadata <- function(
 
 
 process_single_metadata_frame <- function(frame){
-    if(is.na(frame)){return(data.frame(missing=TRUE))}
-    frame = as.data.frame(jsonlite::fromJSON(frame))
-    frame = dplyr::mutate_all(frame, dplyr::funs(as.character(.)))
-    return(frame)
+  if(is.na(frame)){
+    return(data.frame(missing = TRUE))
+  }
+  frame <- as.data.frame(jsonlite::fromJSON(frame))
+  ## frame <- dplyr::mutate_all(frame, dplyr::funs(as.character(.)))
+  for(col in colnames(frame)){
+    frame[[col]] <- as.character(frame[[col]])
+  }
+  return(frame)
 }
-
-
 
 #' @export
 get_all_aliases <- function(
@@ -101,9 +100,13 @@ get_all_aliases <- function(
   depth=NA,
   dbname = default_database_filename()
 ){
-  con <- DBI::dbConnect(drv=RSQLite::SQLite(),dbname)
-  query = "SELECT
-    name,alias,readable_name,location_id as id,max(location_hierarchy.depth) as depth_from_source
+  con <- DBI::dbConnect(drv = RSQLite::SQLite(), dbname)
+  query <- "SELECT
+    name,
+    alias,
+    readable_name,
+    location_id as id,
+    max(location_hierarchy.depth) as depth_from_source
   FROM
     (locations
       LEFT JOIN
@@ -117,26 +120,29 @@ get_all_aliases <- function(
     WHERE
       1=1"
    if(!is.null(location)){
-      query = paste(query,"AND alias is {location}")
+      query <- paste(query, "AND alias is {location}")
    }
   if(!aliases){
-    query = paste(query,'AND alias is name')
+    query <- paste(query, "AND alias is name")
   }
   if(!is.null(source)){
-    parent_id = as.numeric(source)
+    parent_id <- as.numeric(source)
     if(is.na(parent_id)){
-      parent_id = get_database_id_from_name(name=source,dbname=dbname)
+      parent_id <- globaltoolbox::get_database_id_from_name(
+        name = source,
+        dbname = dbname
+      )
     }
-    query = paste(query,'AND parent_id = {parent_id}')
+    query <- paste(query, "AND parent_id = {parent_id}")
     if(strict_scope){
-      query = paste(query,'AND depth > 0')
+      query <- paste(query, "AND depth > 0")
     }
     if(!is.na(depth)){
-      query = paste(query,'AND depth <= {depth}')
+      query <- paste(query, 'AND depth <= {depth}')
     }
   }
-  query = paste(query,'GROUP BY name,alias,location_id')
-  rc <- DBI::dbGetQuery(con,glue::glue_sql(.con=con,query))
+  query <- paste(query, "GROUP BY name,alias,location_id")
+  rc <- DBI::dbGetQuery(con, glue::glue_sql(.con = con, query))
   RSQLite::dbDisconnect(con)
   return(rc)
 }

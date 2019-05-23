@@ -1,4 +1,4 @@
-data('region_data',package='globaltoolbox')
+data('region_data', package = 'globaltoolbox')
 
 
 # Get WHO Regions using ISO
