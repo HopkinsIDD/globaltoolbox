@@ -107,25 +107,25 @@ create_database <- function(dbname = default_database_filename()){
       )
     )
 
-                                        # nolint start
+    # nolint start
     ## The first table holds the locations and any metadata
     ## | Name         | Type               | Description                                        | Constraints                                   |
     ## |--------------|--------------------|----------------------------------------------------|-----------------------------------------------|
     ## | id           | SERIAL PRIMARY KEY | A unique id per location                           | SERIAL                                        |
     ## | alias        | text               | A name for the location                            | NOT NULL                                      |
     ## | location_id  | blob (json)        | this is a json object with any additional metadata | NOT NULL FOREIGN KEY REFERENCES locations(id) |
-                                        # nolint end
+    # nolint end
+
     DBI::dbClearResult(
-             DBI::dbSendQuery(
-                      con,
-                      "CREATE TABLE IF NOT EXISTS location_aliases(
-                        alias text,
-                        location_id integer NOT NULL,
-                        PRIMARY KEY(alias,location_id)
-                        FOREIGN KEY(location_id) REFERENCES locations(id)
-                      );"
-                  )
-         )
+      DBI::dbSendQuery(
+        con, "CREATE TABLE IF NOT EXISTS location_aliases(
+          alias text,
+          location_id integer NOT NULL,
+          PRIMARY KEY(alias,location_id)
+          FOREIGN KEY(location_id) REFERENCES locations(id)
+        );"
+      )
+    )
     ## Populate with WHO regions
     RSQLite::dbDisconnect(con)
     return()

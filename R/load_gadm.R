@@ -82,9 +82,9 @@ load_gadm <- function(countries = NULL, dbname = default_database_filename()){
         location_id <- descendent_id
         tryCatch({
           database_add_location_alias(
-            dbname <- dbname,
-            location_id <- descendent_id,
-            alias <- alias
+            dbname = dbname,
+            location_id = descendent_id,
+            alias = alias
           )
         },
         error = function(e){
@@ -94,7 +94,7 @@ load_gadm <- function(countries = NULL, dbname = default_database_filename()){
             stop(paste(
               "The only way creating an alias should fail is",
               "if the alias is already in the database,",
-              "but it failed with",
+              "but it failed with message:",
               e$message
             ))
           }
