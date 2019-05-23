@@ -9,7 +9,7 @@
 #' @export
 create_location_sf <- function(location_name, thorough=FALSE){
   original_location_name <- location_name
-  location_name <- globaltoolbox::standardize_location_strings(location_name)
+  location_name <- standardize_location_strings(location_name)
   location_array <- strsplit(location_name, split = '::')
   if(thorough){
     location_array <- lapply(
@@ -183,9 +183,9 @@ telescoping_standardize <- function(
   location_name,
   dbname=default_database_filename()
 ){
-  location_name <- globaltoolbox::standardize_location_strings(location_name)
+  location_name <- standardize_location_strings(location_name)
   location_sf <-
-    globaltoolbox::create_location_sf(location_name, thorough = TRUE)
+    create_location_sf(location_name, thorough = TRUE)
   all_names <- list()
   for(level in sort(unique(location_sf$ISO_A2_level))){
       # tmp_location_sf <- dplyr::filter(location_sf, ISO_A2_level == level)

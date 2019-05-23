@@ -63,7 +63,7 @@ load_gadm <- function(countries = NULL, dbname = default_database_filename()){
         metadata_frame[, !(
           colnames(metadata_frame) %in% c("VALIDFR", "VALIDTO")
         )]
-      descendent_id <- globaltoolbox:::database_add_descendent(
+      descendent_id <- :database_add_descendent(
         dbname = dbname,
         metadata = metadata_frame,
         standardized_name = NULL,
@@ -81,7 +81,7 @@ load_gadm <- function(countries = NULL, dbname = default_database_filename()){
         }
         location_id <- descendent_id
         tryCatch({
-          globaltoolbox:::database_add_location_alias(
+          :database_add_location_alias(
             dbname <- dbname,
             location_id <- descendent_id,
             alias <- alias
@@ -196,7 +196,7 @@ load_gadm <- function(countries = NULL, dbname = default_database_filename()){
                 gsub(paste0('_', i, '$'), '', colnames(metadata_frame))
           }
           tryCatch({
-            descendent_id <- globaltoolbox:::database_add_descendent(
+            descendent_id <- :database_add_descendent(
               dbname = dbname,
               metadata = metadata_frame,
               standardized_name = tmp_data$standardized_parent_name,
@@ -240,7 +240,7 @@ load_gadm <- function(countries = NULL, dbname = default_database_filename()){
             for(this_alias in alias){
               location_id <- descendent_id
               tryCatch({
-                globaltoolbox:::database_add_location_alias(
+                :database_add_location_alias(
                   dbname = dbname,
                   location_id = descendent_id,
                   alias = this_alias

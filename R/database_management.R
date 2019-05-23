@@ -151,7 +151,7 @@ database_add_location <- function(
   if (is.numeric(name)){
     stop("This should not happen")
   }
-  name <- globaltoolbox::standardize_location_strings(name)
+  name <- standardize_location_strings(name)
   con <- DBI::dbConnect(drv = RSQLite::SQLite(), dbname)
   metadata <- as.character(jsonlite::toJSON(metadata))
   query <- "INSERT INTO locations
@@ -223,7 +223,7 @@ database_add_location_alias <- function(
   alias,
   dbname = default_database_filename()
 ){
-    alias <- globaltoolbox::standardize_location_strings(alias)
+    alias <- standardize_location_strings(alias)
     con <- DBI::dbConnect(drv = RSQLite::SQLite(), dbname)
     query <- "INSERT INTO location_aliases
       (location_id, alias)

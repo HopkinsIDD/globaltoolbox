@@ -112,7 +112,7 @@ database_standardize_name <- function(
   } else {
     parent_id <- as.numeric(source)
     if(is.na(parent_id)){
-      parent_id <- globaltoolbox::get_database_id_from_name(
+      parent_id <- get_database_id_from_name(
         name = source,
         dbname = dbname
       )

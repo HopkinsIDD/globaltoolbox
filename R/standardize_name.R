@@ -30,10 +30,10 @@ standardize_name <- function(
   }
   ## Set database name if default
   if (is.null(dbname)){
-    dbname <- globaltoolbox::default_database_filename()
+    dbname <- default_database_filename()
   }
 
-  location_clean <- globaltoolbox::standardize_location_strings(location)
+  location_clean <- standardize_location_strings(location)
 
   try({
       rc <- sapply(
@@ -65,7 +65,7 @@ standardize_name <- function(
     depth = depth_from_source
   )
   names_b_data$name <-
-    globaltoolbox::standardize_location_strings(names_b_data$name)
+    standardize_location_strings(names_b_data$name)
 
   ## Run the "match_names" function to match.
   ##  This returns a row index pertaining to names_b_data.
@@ -85,7 +85,7 @@ standardize_name <- function(
                                 depth = depth_from_source
                             )
     names_b_data$name <-
-      globaltoolbox::standardize_location_strings(names_b_data$name)
+      standardize_location_strings(names_b_data$name)
 
     matches_[is.na(matches_)] <- sapply(location_clean[is.na(matches_)],
                                          match_names,
@@ -101,7 +101,7 @@ standardize_name <- function(
                                  depth = depth_from_source
                              )
     names_b_data$name <-
-      globaltoolbox::standardize_location_strings(names_b_data$name)
+      standardize_location_strings(names_b_data$name)
 
     matches_[is.na(matches_)] <- sapply(location_clean[is.na(matches_)],
                                         match_names,
@@ -136,12 +136,12 @@ match_names <- function(name_a, names_b_data,
 
   ## Clean name if not already done
   if (clean_a){
-    name_a <- globaltoolbox::standardize_location_strings(name_a)
+    name_a <- standardize_location_strings(name_a)
   }
 
   ## Clean aliases if not done
   if (clean_b){
-    names_b <- globaltoolbox::standardize_location_strings(names_b)
+    names_b <- standardize_location_strings(names_b)
   }
 
   ## string matching methods
@@ -253,7 +253,7 @@ create_standardized_name <- function(name,
         "creating standardized country names"
       ))
     }
-    return(globaltoolbox::standardize_location_strings(name))
+    return(standardize_location_strings(name))
   }
   if (length(parent) == 1 && is.na(parent)){
     ## JK: Turned these into stops someone not looking at the results
@@ -264,11 +264,11 @@ create_standardized_name <- function(name,
   ## Load database
   ## Set database name if default
   if (is.null(dbname)){
-    dbname <- globaltoolbox::default_database_filename()
+    dbname <- default_database_filename()
   }
 
   ## Standardize the location name
-  name <- globaltoolbox::standardize_location_strings(name)
+  name <- standardize_location_strings(name)
 
   std_parent_name <- sapply(
     parent,
@@ -402,10 +402,10 @@ standardize_name_local <- function(
 
   ## Clean Locations and aliases to match
   ##   cleaning here will be faster than for each match (maybe?)
-  location_clean <- globaltoolbox::standardize_location_strings(location)
+  location_clean <- standardize_location_strings(location)
   names_b_data <- db_scoped[, c('id', 'name')]
   names_b_data$name <-
-    globaltoolbox::standardize_location_strings(names_b_data$name)
+    standardize_location_strings(names_b_data$name)
 
   ## Run the "match_names" function to match.
   ##    This returns a row index pertaining to names_b_data.

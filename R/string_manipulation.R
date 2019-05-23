@@ -61,7 +61,7 @@ standardize_location_strings <- function(location_name){
   location_tmp <- gsub('|', 'vertcharacter', location_tmp, fixed = TRUE)
   location_tmp <- gsub('-', 'dashcharacter', location_tmp, fixed = TRUE)
   location_tmp <- gsub('::', 'doublecoloncharacter', location_tmp, fixed = TRUE)
-  location_tmp <- globaltoolbox::standardize_string(location_tmp)
+  location_tmp <- standardize_string(location_tmp)
   location_tmp <- gsub('doublecoloncharacter', '::', location_tmp, fixed = TRUE)
   location_tmp <- gsub('dashcharacter', '-', location_tmp, fixed = TRUE)
   location_tmp <- gsub('vertcharacter', '|', location_tmp, fixed = TRUE)

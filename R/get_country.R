@@ -27,7 +27,7 @@ match_country <- function(a, #country_names=country_names,
 
   a <- tolower(a)
   a <- stringr::str_replace_all(a, "[[:punct:]]", "") # remove all punctuation
-  b <- tolower(globaltoolbox::country_names$names)
+  b <- tolower(country_names$names)
 
   methods <- c(
     "osa",
@@ -66,12 +66,12 @@ match_country <- function(a, #country_names=country_names,
     return(dists)
   }
   if (length(best_ > 1)){
-    iso <- paste(globaltoolbox::country_names$ISO3[best_], collapse = ", ")
-    country <- paste(globaltoolbox::country_names$Name[best_], collapse = ", ")
+    iso <- paste(country_names$ISO3[best_], collapse = ", ")
+    country <- paste(country_names$Name[best_], collapse = ", ")
     score_sum <- paste(dists$score_sums[best_], collapse = ", ")
   } else {
-    iso <- globaltoolbox::country_names$ISO3[best_]
-    country <- globaltoolbox::country_names$Name[best_]
+    iso <- country_names$ISO3[best_]
+    country <- country_names$Name[best_]
     score_sum <- dists$score_sums[best_]
   }
 
@@ -214,7 +214,7 @@ match_city <- function(
 
   a <- tolower(a)
   a <- stringr::str_replace_all(a, "[[:punct:]]", "") # remove all punctuation
-  b <- tolower(globaltoolbox::city_data$city_ascii)
+  b <- tolower(city_data$city_ascii)
 
   methods <- c("osa",
     "lv",
@@ -255,14 +255,14 @@ match_city <- function(
     return(dists)
   }
   if (length(best_ > 1)){
-    iso <- paste(globaltoolbox::city_data$ISO3[best_], collapse = ", ")
-    name <- paste(globaltoolbox::city_data$city_ascii[best_], collapse = ", ")
+    iso <- paste(city_data$ISO3[best_], collapse = ", ")
+    name <- paste(city_data$city_ascii[best_], collapse = ", ")
     score_sum <-
-      paste(globaltoolbox::city_data$score_sums[best_], collapse = ", ")
+      paste(city_data$score_sums[best_], collapse = ", ")
   } else {
-    iso <- globaltoolbox::city_data$ISO3[best_]
-    name <- globaltoolbox::city_data$city_ascii[best_]
-    score_sum <- globaltoolbox::city_data$score_sums[best_]
+    iso <- city_data$ISO3[best_]
+    name <- city_data$city_ascii[best_]
+    score_sum <- city_data$score_sums[best_]
   }
 
   res <- data.frame(iso = iso, name = name, score_sum = score_sum)
@@ -305,7 +305,7 @@ get_iso <- function(country){
     match_attempt2 <- as.character(lapply(
       X = country[isos_need_match],
       FUN = function(X){
-        as.character(globaltoolbox::match_country(X))
+        as.character(match_country(X))
       }
     ))
     # fill in new matches
@@ -329,7 +329,7 @@ get_iso <- function(country){
 #' @return vector of country names matching each country. These can then be used to identify other characteristics of the country
 #' @export
 get_country_name_std <- function(country){
-  iso3 <- globaltoolbox::get_iso(country)
+  iso3 <- get_iso(country)
   # Get Country using ISO3
   return(as.character(
     country_codes$Country[match(toupper(iso3), country_codes$ISO3)]
@@ -365,7 +365,7 @@ get_location_std <- function(location){
   location_indexes <- match(location_all, location)
 
   # # First try to match the country using get_iso and get_country_name_std
-  loc_stds <- globaltoolbox::get_country_name_std(location)
+  loc_stds <- get_country_name_std(location)
 
   # If not completely successful, try using "match_locs_level2" function
   if (sum(is.na(loc_stds)) != 0){
@@ -373,7 +373,7 @@ get_location_std <- function(location){
     match_attempt2 <- as.character(lapply(
       X = location[locs_need_match],
       FUN = function(X){
-        as.character(globaltoolbox::match_locs_level2(X))
+        as.character(match_locs_level2(X))
       }
     ))
     # fill in new matches
@@ -411,7 +411,7 @@ get_city_std <- function(location){
     loc_stds <- as.character(lapply(
       X = location,
       FUN = function(X){
-        as.character(globaltoolbox::match_city(X))
+        as.character(match_city(X))
       }
     ))
 
@@ -421,7 +421,7 @@ get_city_std <- function(location){
     match_attempt2 <- as.character(lapply(
       X = location[locs_need_match],
       FUN = function(X){
-        as.character(globaltoolbox::match_locs_level2(X))
+        as.character(match_locs_level2(X))
       }
     ))
     # fill in new matches
@@ -507,7 +507,7 @@ get_iso2_from_ISO3 <- function(ISO3){
 #' @return vector of UN codes matching each country.
 #' @export
 get.UNcode <- function(country){
-  iso <- globaltoolbox::get_iso(country)
+  iso <- get_iso(country)
   return(
     country_codes$UNcode[match(toupper(iso), country_codes$ISO3)]
   )
@@ -567,7 +567,7 @@ get_country_code <- function(
     "EDGAR"
   )
 ){
-  iso3 <- globaltoolbox::get_iso(country)
+  iso3 <- get_iso(country)
   # Get code using ISO3
   code_columns <- match(toupper(code), toupper(colnames(country_codes)))
   return(as.character(
