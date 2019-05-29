@@ -87,8 +87,8 @@ test_that("Add Location",{
 test_that("Add Hierarchy",{
   initialize_database()
   create_locations()
-  expect_error({database_add_location_hierarchy(1,3,1,tdbn)},NA)
-  expect_error({database_add_location_hierarchy(1,3,1,tdbn)})
+  expect_error({database_add_hierarchy(1,3,1,tdbn)},NA)
+  expect_error({database_add_hierarchy(1,3,1,tdbn)})
 })
 
 test_that("Add Alias",{
