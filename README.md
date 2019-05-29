@@ -12,3 +12,9 @@ Then you will need to build a database of countries using their ISO 3166 alpha-3
 ```{r}
 globaltoolbox::load_gadm(countries = c('MWI','TZA'))
 ```
+
+Once you have a database, you'll be able to look up location names
+
+```{r}
+globaltoolbox::telescoping_standardize(c("TZA::Balkh"))
+```
