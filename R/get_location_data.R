@@ -35,7 +35,7 @@ get_location_metadata <- function(
     WHERE
       1=1"
    if(!is.null(location)){
-      query <- paste(query, "AND alias is {location}")
+      query <- paste(query, "AND name is {location}")
    }
   if(!aliases){
     query <- paste(query, 'AND alias is name')
@@ -120,7 +120,7 @@ get_all_aliases <- function(
     WHERE
       1=1"
    if(!is.null(location)){
-      query <- paste(query, "AND alias is {location}")
+      query <- paste(query, "AND name is {location}")
    }
   if(!aliases){
     query <- paste(query, "AND alias is name")
