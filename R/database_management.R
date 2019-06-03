@@ -106,6 +106,39 @@ create_database <- function(dbname = default_database_filename()){
        );"
     )
   )
+  DBI::dbClearResult(
+    DBI::dbSendQuery(
+      con,
+      "CREATE TRIGGER IF NOT EXISTS no_overlaps BEFORE INSERT
+       ON location_geometries
+       BEGIN
+         SELECT CASE
+         WHEN EXISTS(
+           SELECT location_id,time_left,time_right
+           FROM location_geometries as OLD
+           WHERE
+             OLD.location_id = NEW.location_id AND
+             OLD.time_left < NEW.time_right AND
+             OLD.time_right >= NEW.time_right
+         )
+         THEN
+           RAISE(ABORT, 'overlapping intervals')
+         END;
+         SELECT CASE
+         WHEN EXISTS(
+           SELECT location_id,time_left,time_right
+           FROM location_geometries as OLD
+           WHERE
+             OLD.location_id = NEW.location_id AND
+             OLD.time_left <= NEW.time_left AND
+             OLD.time_right > NEW.time_left
+         )
+         THEN
+           RAISE(ABORT, 'overlapping intervals')
+         END;
+       END"
+    )
+  )
 
   ## nolint start
   ## The first table holds the locations and any metadata

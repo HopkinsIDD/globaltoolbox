@@ -6,19 +6,24 @@ context("Database Low Level Interface")
 tdbn <- "testdatabase.sqlite"
 fdbn <- "fakedatabase.sqlite"
 attempt_fun <- function(FUN,NAME,...){
-  tryCatch(FUN(...),error=function(e){skip_if(TRUE,message=paste(NAME,'failed with error',e$message))})
+  tryCatch(
+    FUN(...),
+    error = function(e){
+      skip_if(TRUE, message = paste(NAME, "failed with error", e$message))
+    }
+  )
 }
 initialize_database <-  function(){
-  attempt_fun(reset_database,'reset_database',dbname=tdbn)
-  attempt_fun(create_database,'create_database',dbname=tdbn)
+  attempt_fun(reset_database, "reset_database", dbname = tdbn)
+  attempt_fun(create_database, "create_database", dbname = tdbn)
 }
 create_locations <- function(){
   attempt_fun(
-    FUN=database_add_location,
-    NAME='add_location',
-    name='TST',
-    readable_name='Test',
-    metadata=list('test'=1),
+    FUN = database_add_location,
+    NAME = 'add_location',
+    name = 'TST',
+    readable_name = 'Test',
+    metadata = list('test'=1),
     tdbn
   )
   attempt_fun(FUN=database_add_location,
@@ -47,9 +52,9 @@ test_that("default_database_filename",{
 test_that("Database Reset",{
   expect_error({create_database(tdbn)},NA)
   expect_error({reset_database(tdbn)},NA)
-  expect_equal(file.exists(tdbn),FALSE)
+  expect_equal(file.exists(tdbn),TRUE)
   expect_error({reset_database(tdbn)},NA)
-  expect_equal(file.exists(tdbn),FALSE)
+  expect_equal(file.exists(tdbn),TRUE)
 })
 
 test_that("Database Creation",{
