@@ -3,8 +3,8 @@
 context("Database Low Level Interface")
 
 # Startup
-tdbn = 'testdatabase.sqlite'
-fdbn = 'fakedatabase.sqlite'
+tdbn <- "testdatabase.sqlite"
+fdbn <- "fakedatabase.sqlite"
 attempt_fun <- function(FUN,NAME,...){
   tryCatch(FUN(...),error=function(e){skip_if(TRUE,message=paste(NAME,'failed with error',e$message))})
 }
@@ -12,7 +12,7 @@ initialize_database <-  function(){
   attempt_fun(reset_database,'reset_database',dbname=tdbn)
   attempt_fun(create_database,'create_database',dbname=tdbn)
 }
-create_locations = function(){
+create_locations <- function(){
   attempt_fun(
     FUN=database_add_location,
     NAME='add_location',
@@ -87,8 +87,8 @@ test_that("Add Location",{
 test_that("Add Hierarchy",{
   initialize_database()
   create_locations()
-  expect_error({database_add_location_hierarchy(1,3,1,tdbn)},NA)
-  expect_error({database_add_location_hierarchy(1,3,1,tdbn)})
+  expect_error({database_add_hierarchy(1,3,1,tdbn)},NA)
+  expect_error({database_add_hierarchy(1,3,1,tdbn)})
 })
 
 test_that("Add Alias",{
