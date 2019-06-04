@@ -8,3 +8,4 @@ after_success:
 apt_packages:
   - libgdal1-dev
   - libproj-dev
+  - libudunits2-dev
