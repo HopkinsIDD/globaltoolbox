@@ -1,3 +1,7 @@
+<!-- badges: start -->
+  [![Codecov test coverage](https://codecov.io/gh/HopkinsIDD/globaltoolbox/branch/master/graph/badge.svg)](https://codecov.io/gh/HopkinsIDD/globaltoolbox?branch=master)
+  <!-- badges: end -->
+
 # globaltoolbox
 
 ## Installation
