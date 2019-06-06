@@ -162,6 +162,11 @@ create_database <- function(dbname = default_database_filename()){
   )
   ## Populate with WHO regions
   RSQLite::dbDisconnect(con)
+  try({
+    loc_id <- database_add_location("", "", NULL, dbname)
+    database_add_hierarchy(loc_id, loc_id, 0, dbname = dbname)
+    database_add_location_alias(loc_id, "", dbname = dbname)
+  },silent=T)
   return()
 }
 

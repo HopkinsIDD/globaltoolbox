@@ -6,7 +6,7 @@
 #' @return standardized database built from GADM data
 #' @import dplyr
 #' @export
-load_gadm <- function(countries = NULL, dbname = default_database_filename()){
+load_gadm <- function(countries = NULL, max_depth = Inf, dbname = default_database_filename()){
   country_aliases.csv <- system.file(
     "extdata",
     "country_aliases.csv",
@@ -66,7 +66,7 @@ load_gadm <- function(countries = NULL, dbname = default_database_filename()){
       descendent_id <- database_add_descendent(
         dbname = dbname,
         metadata = metadata_frame,
-        standardized_name = NULL,
+        standardized_name = "",
         readable_descendent_name = country_data$ISO
       )
       for(alias_idx in
@@ -347,5 +347,235 @@ standardize_gadm_rhs_time <- function(x){
   return(NA)
 }
 
-load_sf <- function(sf_object, alias_columns){
+load_sf <- function(
+  sf_object,
+  source,
+  name_columns,
+  alias_column = c(),
+  geometry_columns = "geometry",
+  match_threshold = 1e-6
+){
+
+  error_messages <- c('')
+
+  sf_object$depth <- NA
+  sf_object$source <- as.character(NA)
+  sf_object$exact_match <- FALSE
+  while(is.na(any(sf_object$depth))){
+    sf_object$source_updated <- FALSE
+    ## Search for a containing location at depth whatever
+    for(source in unique(sf_object$source)){
+
+      if(is.na(source)){
+        tmp_sf <- sf_object[is.na(sf_object$source),]
+        source <- NULL
+        stop("This case is not yet working")
+      } else {
+        tmp_sf <- sf_object[sf_object$source == source,]
+      }
+      all_geometries <- get_location_geometry(
+        source = source,
+        depth = 1,
+        strict_scope = TRUE
+      )
+      intersection_matrix <- sf::st_intersects(all_geometries, tmp_sf)
+
+      ## We only need the geometries from that this source that intersect
+      intersection_indices <- sapply(intersection_matrix, length) > 0
+      all_geometries <- all_geometries[intersection_indices, ]
+      intersection_matrix <- intersection_matrix[intersection_indices]
+
+      ## Now we find containment relationships
+
+      for(intersection in 1:length(intersection_matrix)){
+        index <- intersection_indices[intersection]
+        this_intersection <- st_intersectiion(
+          all_geometries$geometry[index],
+          tmp_sf$geometry[intersection_matrix[intersection] ]
+        )
+
+        this_area <- st_area(this_intersection)
+        container_area <- st_area(all_geometries$geometry[index])
+        contained_area <- st_area(
+          tmp_sf$geometry[intersection_matrix[intersection] ]
+        )
+        ## Also set depth
+
+        ## If containment, we set the source.
+        area_difference_1 <-
+          (this_area - contained_area) / contained_area
+        partial_i <- which(as.numeric(area_difference_1) < match_threshold)
+        if(length(partial_i) > 0){
+          tmp_sf$source[
+            (intersection_matrix[intersection])[exact_i]
+          ] <- all_geometries$name[index]
+        }
+
+        ## If we have an exact match, then mark for merger
+        area_difference_2 <-
+          (this_area - container_area) / container_area
+        exact_i <- which(as.numeric(area_difference_2) < match_threshold)
+        if(length(exact_i) > 0){
+          tmp_sf$exact_match[
+            (intersection_matrix[intersection])[exact_i]
+          ] <- TRUE
+        }
+      }
+    }
+    ## Anything that hasn't been updated by now didn't have a match
+    ## Source stays how it was before.
+
+
+  }
+  ## Every location should have a source and a depth now.
+  ## Create a new location/locat
+
+      metadata_frame <- as.data.frame(sf_object)
+      metadata_frame <- metadata_frame[, colnames(metadata_frame) != "geometry"]
+      metadata_frame <-
+        metadata_frame[, !grepl("NAME", colnames(metadata_frame))]
+      metadata_frame <-
+        metadata_frame[, !(
+          colnames(metadata_frame) %in% c("VALIDFR", "VALIDTO")
+        )]
+      descendent_id <- database_add_descendent(
+        dbname = dbname,
+        metadata = metadata_frame,
+        standardized_name = NULL,
+        readable_descendent_name = sf_object$ISO
+      )
+      for(alias_idx in
+        c(
+          which(colnames(sf_object) == 'ISO'),
+          which(grepl("NAME", colnames(sf_object)))
+        )
+      ){
+        alias <- sf_object[[alias_idx]][1]
+        if(grepl("^\n \r$", alias)){
+          next
+        }
+        location_id <- descendent_id
+        tryCatch({
+          database_add_location_alias(
+            dbname = dbname,
+            location_id = descendent_id,
+            alias = alias
+          )
+        },
+        error = function(e){
+          if(!(
+            grepl("UNIQUE constraint failed", e$message)
+          )){
+            stop(paste(
+              "The only way creating an alias should fail is",
+              "if the alias is already in the database,",
+              "but it failed with message:",
+              e$message
+            ))
+          }
+        })
+      }
+      tryCatch({
+        geometry <- sf_object$geometry
+        time_left <- "1800-01-01"
+        time_right <- "2020-01-01"
+        database_add_location_geometry(
+          location_id = location_id,
+          time_left = time_left,
+          time_right = time_right,
+          geometry = geometry,
+          dbname = dbname
+        )
+      },
+      error = function(e){
+      },
+      silent = T)
+      unlink(destination)
+
+  for(msg in error_messages){
+    message(msg)
+  }
+}
+
+find_geometry_source <- function(
+  sf_object,
+  source = NULL,
+  match_threshold = 1e-6
+){
+
+  error_messages <- c('')
+
+  sf_object$depth <- NA
+  sf_object$source <- as.character(NA)
+  sf_object$exact_match <- FALSE
+  sf_object$finished <- FALSE
+  sf_object$source_updated <- FALSE
+
+  while(!all(sf_object$finished)){
+    sf_object$source_updated <- FALSE
+
+    for(source in unique(sf_object$source)){
+
+      if(is.na(source)){
+        tmp_sf <- sf_object[is.na(sf_object$source),]
+        source <- NULL
+        stop("This case is not yet working")
+      } else {
+        tmp_sf <- sf_object[sf_object$source == source,]
+      }
+
+      all_geometries <- get_location_geometry(
+        source = source,
+        depth = 1,
+        strict_scope = TRUE
+      )
+      intersection_matrix <- sf::st_intersects(all_geometries, tmp_sf)
+
+      ## We only need the geometries from that this source that intersect
+      intersection_indices <- sapply(intersection_matrix, length) > 0
+      all_geometries <- all_geometries[intersection_indices, ]
+      intersection_matrix <- intersection_matrix[intersection_indices]
+
+      ## Now we find containment relationships
+
+      for(intersection in 1:length(intersection_matrix)){
+        index <- intersection_indices[intersection]
+        this_intersection <- st_intersectiion(
+          all_geometries$geometry[index],
+          tmp_sf$geometry[intersection_matrix[intersection] ]
+        )
+
+        this_area <- st_area(this_intersection)
+        container_area <- st_area(all_geometries$geometry[index])
+        contained_area <- st_area(
+          tmp_sf$geometry[intersection_matrix[intersection] ]
+        )
+        ## Also set depth
+
+        ## If containment, we set the source.
+        area_difference_1 <-
+          (this_area - contained_area) / contained_area
+        partial_i <- which(as.numeric(area_difference_1) < match_threshold)
+        if(length(partial_i) > 0){
+          tmp_sf$source[
+            (intersection_matrix[intersection])[exact_i]
+          ] <- all_geometries$name[index]
+        }
+
+        ## If we have an exact match, then mark for merger
+        area_difference_2 <-
+          (this_area - container_area) / container_area
+        exact_i <- which(as.numeric(area_difference_2) < match_threshold)
+        if(length(exact_i) > 0){
+          tmp_sf$exact_match[
+            (intersection_matrix[intersection])[exact_i]
+          ] <- TRUE
+        }
+      }
+    }
+  }
+
+  for(msg in error_messages){
+    message(msg)
+  }
 }

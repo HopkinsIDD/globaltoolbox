@@ -1,11 +1,11 @@
 #' @include database_management.R get_location_data.R string_manipulation.R
 
-#' @name standardize_name
+
 #' @title standardize_name
 #' @description Using various methods, matches the inputted location name to a location and returns a standardized code
 #' for that location
 #' @param location location name to match
-#' @param scope a known standardized location scope, if available. For a city, this would be the code for the country 
+#' @param scope a known standardized location scope, if available. For a city, this would be the code for the country
 #' where it is located
 #' @param metadata Additional data that may be useful to identify the location name
 #' @param database database to pull location information from. If NULL, it will pull from the database included in the package.
@@ -15,13 +15,14 @@
 #' @export
 standardize_name <- function(
   location,
-  scope=NULL,
+  scope="",
   metadata,
   dbname=NULL,
   strict_scope=TRUE,
   depth=NA,
   ...
 ){
+  original_location <- location
   if(length(scope) > 1){
     stop(paste(
       "This function takes a single scope.",
@@ -43,7 +44,7 @@ standardize_name <- function(
           dbname = dbname
       )
     if(length(rc) == length(location)){
-        return(rc)
+        return(setNames(rc, original_location))
     }
   },
   silent = T)
@@ -110,9 +111,9 @@ standardize_name <- function(
   }
 
   if(all(is.na(matches_))){
-    return(matches_)
+    return(setNames(matches_, original_location))
   }
-  return(db_scoped$name[matches_])
+  return(setNames(db_scoped$name[matches_], original_location))
 }
 
 
@@ -278,7 +279,7 @@ create_standardized_name <- function(name,
           name = x,
           dbname = dbname,
           aliases = FALSE,
-          source = NULL
+          source = ""
         ),
         error = function(err){
           NA
@@ -299,7 +300,7 @@ create_standardized_name <- function(name,
               name = x,
               dbname = dbname,
               aliases = TRUE,
-              source = NULL
+              source = ""
             ),
             error = function(err){
               NA
@@ -360,7 +361,7 @@ create_standardized_name <- function(name,
 #' @description Using various methods, matches the inputted location name to a location and returns a standardized code
 #' for that location
 #' @param location location name to match
-#' @param scope a known standardized location scope, if available. For a city, this would be the code for the country 
+#' @param scope a known standardized location scope, if available. For a city, this would be the code for the country
 #' where it is located
 #' @param metadata Additional data that may be useful to identify the location name
 #' @param database database to pull location information from. If NULL, it will pull from the database included in the package.
@@ -370,7 +371,7 @@ create_standardized_name <- function(name,
 #' @export
 standardize_name_local <- function(
   location,
-  scope=NULL,
+  scope="",
   metadata,
   return_match_scores=FALSE,
   ...
@@ -431,7 +432,7 @@ standardize_name_local <- function(
 #' @description Wrapper function for `standardize_name` returns a standardized common name
 #' for a location
 #' @param location location name to match
-#' @param scope a known standardized location scope, if available. For a city, this would be the code for the country 
+#' @param scope a known standardized location scope, if available. For a city, this would be the code for the country
 #' where it is located
 #' @param metadata Additional data that may be useful to identify the location name
 #' @param database database to pull location information from. If NULL, it will pull from the database included in the package.
@@ -440,7 +441,7 @@ standardize_name_local <- function(
 #' @export
 get_common_name_local <- function(
   location,
-  scope=NULL,
+  scope="",
   metadata,
   return_match_scores=FALSE,
   ...

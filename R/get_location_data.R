@@ -12,7 +12,7 @@
 #' @export
 get_location_metadata <- function(
   location=NULL,
-  source=NULL,
+  source="",
   metadata_names=NULL,
   aliases=TRUE,
   strict_scope=TRUE,
@@ -93,7 +93,7 @@ process_single_metadata_frame <- function(frame){
 #' @export
 get_all_aliases <- function(
   location=NULL,
-  source=NULL,
+  source="",
   metadata_names=NULL,
   aliases=TRUE,
   strict_scope=TRUE,
@@ -143,6 +143,77 @@ get_all_aliases <- function(
   }
   query <- paste(query, "GROUP BY name,alias,location_id")
   rc <- DBI::dbGetQuery(con, glue::glue_sql(.con = con, query))
+  RSQLite::dbDisconnect(con)
+  return(rc)
+}
+
+get_location_geometry <- function(
+  location=NULL,
+  source="",
+  metadata_names=NULL,
+  strict_scope=TRUE,
+  depth=NA,
+  time_left = NA,
+  time_right = NA,
+  dbname = default_database_filename()
+){
+  con <- DBI::dbConnect(drv = RSQLite::SQLite(), dbname)
+  query <- "SELECT
+    locations.name,
+    locations.id as location_id,
+    location_geometries.id as geometry_id,
+    location_geometries.time_left,
+    location_geometries.time_right,
+    location_geometries.geometry
+  FROM
+    (locations
+      LEFT JOIN
+    location_hierarchy
+      ON
+        locations.id = location_hierarchy.descendent_id
+    ) INNER JOIN
+    location_geometries
+      ON
+      locations.id = location_geometries.location_id
+    WHERE
+      1=1"
+   if(!is.null(location)){
+      query <- paste(query, "AND name is {location}")
+   }
+  if(!is.na(time_left)){
+    query <- paste(query, "AND {time_left} < time_right")
+  }
+  if(!is.na(time_right)){
+    query <- paste(query, "AND time_left <= {time_right}")
+  }
+  if(is.null(source)){
+    query <- paste(query, "AND depth = 0")
+  } else {
+    parent_id <- as.numeric(source)
+    if(is.na(parent_id)){
+      parent_id <-
+        globaltoolbox::get_database_id_from_name(name = source, dbname = dbname)
+    }
+    query <- paste(query, 'AND parent_id = {parent_id}')
+    if(strict_scope){
+      query <- paste(query, 'AND depth > 0')
+    }
+    if(!is.na(depth)){
+      query <- paste(query, 'AND depth <= {depth}')
+    }
+  }
+
+  rc <- DBI::dbGetQuery(con, glue::glue_sql(.con = con, query))
+  rc$depth_from_source <- rc$depth
+  rc$depth <- NULL
+geojsonsf::geojson_sf(tmp$geometry)
+  # metadata.frame <- dplyr::bind_rows(
+  #   lapply(rc$metadata, process_single_metadata_frame)
+  # )
+  # rc <- dplyr::bind_cols(
+  #   rc[, -which(colnames(rc) %in% c('standard', 'metadata'))],
+  #   metadata.frame
+  # )
   RSQLite::dbDisconnect(con)
   return(rc)
 }

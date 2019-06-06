@@ -83,9 +83,9 @@ database_add_descendent <- function(
 #' @export
 database_standardize_name <- function(
   name,
-  source=NULL,
+  source="",
   aliases=TRUE,
-  strict_scope=TRUE,
+  strict_scope=source != "",
   depth=NA,
   dbname = default_database_filename()
 ){

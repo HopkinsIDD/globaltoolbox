@@ -183,6 +183,7 @@ telescoping_standardize <- function(
   location_name,
   dbname=default_database_filename()
 ){
+  original_name <- location_name
   location_name <- standardize_location_strings(location_name)
   location_sf <-
     create_location_sf(location_name, thorough = TRUE)
@@ -211,7 +212,7 @@ telescoping_standardize <- function(
         )
         standard_names <- standardize_name(
           gsub('.*:', '', nonstandard_names),
-          scope = NULL,
+          scope = "",
           dbname = dbname
         )
      } else {
@@ -251,9 +252,9 @@ telescoping_standardize <- function(
     standardized_name = ifelse(
         any(is.na(standardized_name)),
         as.character(NA),
-        paste(standardized_name, collapse = '|')
+        paste(standardized_name, collapse = "|")
     )
   )
   location_sf <- dplyr::ungroup(location_sf)
-  return(location_sf$standardized_name)
+  return(setNames(location_sf$standardized_name, original_name))
 }
