@@ -6,7 +6,11 @@
 #' @return standardized database built from GADM data
 #' @import dplyr
 #' @export
-load_gadm <- function(countries = NULL, max_depth = Inf, dbname = default_database_filename()){
+load_gadm <- function(
+  countries = NULL,
+  max_depth = Inf,
+  dbname = default_database_filename()
+){
   country_aliases.csv <- system.file(
     "extdata",
     "country_aliases.csv",

@@ -5,7 +5,6 @@
 #' @param location_name Location name to generate shapefiles for.
 #' @param thorough Logical, whether to include all levels of the location...
 #' @return Array of location shapefiles???
-#' @import dplyr
 #' @export
 create_location_sf <- function(location_name, thorough=FALSE){
   original_location_name <- location_name
@@ -153,7 +152,7 @@ create_location_sf <- function(location_name, thorough=FALSE){
       ungrouped_shapefiles[, 5:ncol(ungrouped_shapefiles)],
       1,
       function(x){
-        paste(na.omit(x), collapse = '::')
+        paste(stats::na.omit(x), collapse = '::')
       }
     )
   )
@@ -177,7 +176,6 @@ create_location_sf <- function(location_name, thorough=FALSE){
 #' @param location_name Location name to generate shapefiles for.
 #' @param dbname Filename of the database. Default will use the package-defined name.
 #' @return Location standized name???
-#' @import dplyr
 #' @export
 telescoping_standardize <- function(
   location_name,

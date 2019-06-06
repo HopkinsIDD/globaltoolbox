@@ -3,3 +3,6 @@
 ^data-raw$
 ^R-in-dev$
 ^codecov\.yml$
+^.travis.yml
+^.lintr
+^\.travis\.yml$

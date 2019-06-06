@@ -15,7 +15,13 @@ Imports:
     geojsonsf,
     jsonlite,
     stringdist,
-    stringr
+    stringr,
+    glue,
+    lubridate,
+    tibble,
+    tidyr,
+    reshape2,
+    stats
 Suggests: 
     readxl,
     rgdal,
