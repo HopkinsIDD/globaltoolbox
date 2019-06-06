@@ -16,7 +16,12 @@ Imports:
     jsonlite,
     stringdist,
     stringr
-Suggests: readxl,rgdal,testthat,sf
+Suggests: 
+    readxl,
+    rgdal,
+    testthat,
+    sf,
+    covr
 Maintainer: Shaun Truelove <shauntruelove@jhu.edu>
 License: GPL (>=2)
 Encoding: UTF-8

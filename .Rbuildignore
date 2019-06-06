@@ -2,3 +2,4 @@
 ^\.Rproj\.user$
 ^data-raw$
 ^R-in-dev$
+^codecov\.yml$
