@@ -1,4 +1,6 @@
 
+if(getRversion() >= "2.15.1")  utils::globalVariables(c("."))
+
 #' @name create_location_sf
 #' @title match_names
 #' @description ???
@@ -115,7 +117,7 @@ create_location_sf <- function(location_name, thorough=FALSE){
   ## We will use this for finding the shapefiles.
   ## They will eventually be part of this object
   ungrouped_shapefiles <-
-    dplyr::filter(reshape2::melt(location_array), !is.na(value))
+    dplyr::filter(reshape2::melt(location_array), !is.na(.data$value))
   ungrouped_shapefiles$value <-
     as.character(ungrouped_shapefiles$value)
   names(ungrouped_shapefiles)[1:4] <-
@@ -131,9 +133,9 @@ create_location_sf <- function(location_name, thorough=FALSE){
 
   ungrouped_shapefiles <- tidyr::spread(
     ungrouped_shapefiles,
-    key = ISO_level,
-    value = value,
-    drop = T
+    key = .data$ISO_level,
+    value = .data$value,
+    drop = TRUE
   )
   names(ungrouped_shapefiles)[5] <- 'ISO_A1'
   if(ncol(ungrouped_shapefiles) > 5){
