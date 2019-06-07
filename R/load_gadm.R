@@ -352,7 +352,7 @@ standardize_gadm_rhs_time <- function(x){
 load_sf <- function(
   sf_object,
   source,
-  name_columns,
+  name_column,
   alias_column = c(),
   geometry_columns = "geometry",
   match_threshold = 1e-6,
@@ -361,6 +361,46 @@ load_sf <- function(
 
   error_messages <- c('')
 
+  sources <- find_geometry_source(
+    sf_object,
+    source,
+    match_threshold
+  )
+  for(idx in 1:nrow(sf_object)){
+    tmp_sources <- sources[
+      sources$name == sf_object[name_column]
+    ]
+    ## create metadata frame
+    warning("Not yet implementing metadata")
+
+    if(sources$exact_match[idx]){
+      warning("This implementation is fragile")
+
+      descendent_id <- database_add_descendent(
+        dbname = dbname,
+        metadata = metadata_frame,
+        standardized_name = sources$source[idx],
+        readable_descendent_name = sf_object[[name_column]][idx]
+      )
+
+      database_merge_location(
+        descendent_id,
+        get_database_id_from_name(sources$source[idx]),
+        dbname=dbname
+      )
+      stop("Not yet implemented")
+    } else {
+
+      ## create standardized name
+
+      descendent_id <- database_add_descendent(
+        dbname = dbname,
+        metadata = metadata_frame,
+        standardized_name = sources$source[idx],
+        readable_descendent_name = sf_object[[name_column]]
+      )
+    }
+  }
   sf_object$depth <- NA
   sf_object$source <- as.character(NA)
   sf_object$exact_match <- FALSE
