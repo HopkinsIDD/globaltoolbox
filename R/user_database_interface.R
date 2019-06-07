@@ -14,7 +14,7 @@ database_add_descendent <- function(
   dbname=default_database_filename()
 ){
 
-  warning("Not checking for aliases as name matching is too sensitive")
+  # warning("Not checking for aliases as name matching is too sensitive")
   standardized_descendent_name <- create_standardized_name(
     name = readable_descendent_name,
     parent = standardized_name,
