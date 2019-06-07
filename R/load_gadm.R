@@ -55,7 +55,7 @@ load_gadm <- function(
     silent = T)
 
     # if GADM file downloaded correctly process it
-    if(file.exists(destination)){
+      if(file.exists(destination) & (file.size(destination) > 0)){
       country_data <- sf::st_as_sf(readRDS(destination))
       country_data$type <- 'ISO_A1'
       country_data$depth <- 0
@@ -154,7 +154,7 @@ load_gadm <- function(
         download.file(website, destination, mode = 'wb')
       },
       silent = T)
-      if(file.exists(destination)){
+      if(file.exists(destination) & (file.size(destination) > 0)){
         country_data <- sf::st_as_sf(readRDS(destination))
         country_data$type <- paste0('ISO_A2_L', ISO_level)
         country_data$depth <- ISO_level

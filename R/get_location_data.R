@@ -126,8 +126,10 @@ get_all_aliases <- function(
     query <- paste(query, "AND alias is name")
   }
   if(!is.null(source)){
-    parent_id <- as.numeric(source)
-    if(is.na(parent_id)){
+    parent_id <- NA
+    if(is.numeric(source)){
+      parent_id <- as.numeric(source)
+    } else {
       parent_id <- globaltoolbox::get_database_id_from_name(
         name = source,
         dbname = dbname
