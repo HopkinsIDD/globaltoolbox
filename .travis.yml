@@ -6,8 +6,6 @@ r:
   - devel
 after_success:
   - Rscript -e 'covr::codecov()'
-after_failure:
-  - Rscript -e 'covr::codecov()'
 apt_packages:
   - libgdal1-dev
   - libproj-dev
