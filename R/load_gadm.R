@@ -16,9 +16,9 @@ load_gadm <- function(
     "country_aliases.csv",
     package = "globaltoolbox"
   )
-  country_aliases <- read.csv(country_aliases.csv)
+  country_aliases <- utils::read.csv(country_aliases.csv)
   country_aliases <- country_aliases[
-    (country_aliases[, 1] == countries ) |
+  (country_aliases[, 1] == countries ) |
     (country_aliases[, 2] == countries ),
   ]
 
@@ -39,7 +39,7 @@ load_gadm <- function(
     print(ISO_A1)
     destination <- tempfile(fileext = '.rds')
 
-    # Download GADM for the country
+                                        # Download GADM for the country
     try({
       ISO_level <- 0
       website <- paste(
@@ -50,12 +50,12 @@ load_gadm <- function(
         ".rds",
         sep = ''
       )
-      download.file(website, destination, mode = 'wb')
+      utils::download.file(website, destination, mode = 'wb')
     },
     silent = T)
 
-    # if GADM file downloaded correctly process it
-      if(file.exists(destination) & (file.size(destination) > 0)){
+                                        # if GADM file downloaded correctly process it
+    if(file.exists(destination) & (file.size(destination) > 0)){
       country_data <- sf::st_as_sf(readRDS(destination))
       country_data$type <- 'ISO_A1'
       country_data$depth <- 0
@@ -126,21 +126,22 @@ load_gadm <- function(
     toggle <- TRUE
     ISO_level <- 0
     while(toggle){
-        if(length(error_messages) > 11){
-            warning("Over 10 errors")
-        }
-        if(length(error_messages) > 101){
-            warning("Over 100 errors")
-        }
-        if(length(error_messages) > 1001){
-            warning("Over 1000 errors")
-        }
-        if(length(error_messages) > 10001){
-            warning("Over 10000 errors")
-        }
-        if(length(error_messages) > 100001){
-            warning("Over 100000 errors")
-        }
+      if(length(error_messages) > 11){
+        warning("Over 10 errors")
+      }
+      if(length(error_messages) > 101){
+        warning("Over 100 errors")
+      }
+      if(length(error_messages) > 1001){
+        warning("Over 1000 errors")
+      }
+      if(length(error_messages) > 10001){
+        warning("Over 10000 errors")
+      }
+      if(length(error_messages) > 100001){
+        warning("Over 100000 errors")
+      }
+      destination <- tempfile(fileext = ".rds")
       try({
         ISO_level <- ISO_level + 1
         website <- paste(
@@ -151,7 +152,7 @@ load_gadm <- function(
           ".rds",
           sep = ''
         )
-        download.file(website, destination, mode = 'wb')
+        utils::download.file(website, destination, mode = 'wb')
       },
       silent = T)
       if(file.exists(destination) & (file.size(destination) > 0)){
@@ -161,10 +162,10 @@ load_gadm <- function(
         parent_name <- c()
         for(i in 0:(ISO_level - 1)){
           ## Remove data about containing countries
-            parent_name <- paste(
-                parent_name,
-                country_data[[paste('NAME', i, sep = '_')]],
-                sep = '::')
+          parent_name <- paste(
+            parent_name,
+            country_data[[paste('NAME', i, sep = '_')]],
+            sep = '::')
         }
         parent_name <- gsub('^::', '', parent_name)
         country_data$standardized_parent_name <-
@@ -183,7 +184,7 @@ load_gadm <- function(
           metadata_frame <- as.data.frame(tmp_data)
           metadata_frame <- metadata_frame[, !(
             colnames(metadata_frame) %in%
-            paste(alias_ISO_columns, ISO_level, sep = '_')
+              paste(alias_ISO_columns, ISO_level, sep = '_')
           )]
           metadata_frame <- metadata_frame[, (
             colnames(metadata_frame) != 'geometry'
@@ -193,11 +194,11 @@ load_gadm <- function(
           )]
           for(i in 0:(ISO_level - 1)){
             ## Remove data about containing countries
-              metadata_frame <- metadata_frame[, !(
-                  grepl(paste0('_', i, '$'), colnames(metadata_frame))
-                  )]
+            metadata_frame <- metadata_frame[, !(
+              grepl(paste0('_', i, '$'), colnames(metadata_frame))
+            )]
             colnames(metadata_frame) <-
-                gsub(paste0('_', i, '$'), '', colnames(metadata_frame))
+              gsub(paste0('_', i, '$'), '', colnames(metadata_frame))
           }
           tryCatch({
             descendent_id <- database_add_descendent(
@@ -225,7 +226,7 @@ load_gadm <- function(
           })
           tmp_alias_ISO_columns <- paste(alias_ISO_columns[
             paste(alias_ISO_columns, ISO_level, sep = '_') %in%
-            colnames(country_data)
+              colnames(country_data)
           ],
           ISO_level,
           sep = '_'
@@ -280,8 +281,8 @@ load_gadm <- function(
           error = function(e){
           },
           silent = T)
-          unlink(destination)
         }
+        unlink(destination)
       } else {
         toggle <- FALSE
       }
@@ -301,12 +302,12 @@ load_gadm <- function(
 #' @return Standardized time.
 #' @export
 standardize_gadm_lhs_time <- function(x){
-    if(x == 'Present'){
-        return(lubridate::now())
-    }
-    if(x == 'Unknown'){
-        return(lubridate::ymd('1900-01-01'))
-    }
+  if(x == 'Present'){
+    return(lubridate::now())
+  }
+  if(x == 'Unknown'){
+    return(lubridate::ymd('1900-01-01'))
+  }
   x <- gsub('[^1234567890]', '', x)
   if(nchar(x) == 4){
     return(lubridate::ymd(paste(x, '01', '01')))
@@ -330,12 +331,12 @@ standardize_gadm_lhs_time <- function(x){
 #' @return Standardized time.
 #' @export
 standardize_gadm_rhs_time <- function(x){
-    if(x == 'Present'){
-        return(lubridate::now() + lubridate::years(1))
-    }
-    if(x == 'Unknown'){
-        return(lubridate::now() + lubridate::years(1))
-    }
+  if(x == 'Present'){
+    return(lubridate::now() + lubridate::years(1))
+  }
+  if(x == 'Unknown'){
+    return(lubridate::now() + lubridate::years(1))
+  }
   x <- gsub('[^1234567890]', '', x)
   if(nchar(x) == 4){
     return(lubridate::ymd(paste(x, '12', '31')))
@@ -357,7 +358,8 @@ load_sf <- function(
   name_columns,
   alias_column = c(),
   geometry_columns = "geometry",
-  match_threshold = 1e-6
+  match_threshold = 1e-6,
+  dbname = default_database_filename()
 ){
 
   error_messages <- c('')
@@ -393,14 +395,14 @@ load_sf <- function(
 
       for(intersection in 1:length(intersection_matrix)){
         index <- intersection_indices[intersection]
-        this_intersection <- st_intersectiion(
+        this_intersection <- sf::st_intersection(
           all_geometries$geometry[index],
           tmp_sf$geometry[intersection_matrix[intersection] ]
         )
 
-        this_area <- st_area(this_intersection)
-        container_area <- st_area(all_geometries$geometry[index])
-        contained_area <- st_area(
+        this_area <- sf::st_area(this_intersection)
+        container_area <- sf::st_area(all_geometries$geometry[index])
+        contained_area <- sf::st_area(
           tmp_sf$geometry[intersection_matrix[intersection] ]
         )
         ## Also set depth
@@ -411,7 +413,7 @@ load_sf <- function(
         partial_i <- which(as.numeric(area_difference_1) < match_threshold)
         if(length(partial_i) > 0){
           tmp_sf$source[
-            (intersection_matrix[intersection])[exact_i]
+          (intersection_matrix[intersection])[exact_i]
           ] <- all_geometries$name[index]
         }
 
@@ -421,7 +423,7 @@ load_sf <- function(
         exact_i <- which(as.numeric(area_difference_2) < match_threshold)
         if(length(exact_i) > 0){
           tmp_sf$exact_match[
-            (intersection_matrix[intersection])[exact_i]
+          (intersection_matrix[intersection])[exact_i]
           ] <- TRUE
         }
       }
@@ -434,67 +436,66 @@ load_sf <- function(
   ## Every location should have a source and a depth now.
   ## Create a new location/locat
 
-      metadata_frame <- as.data.frame(sf_object)
-      metadata_frame <- metadata_frame[, colnames(metadata_frame) != "geometry"]
-      metadata_frame <-
-        metadata_frame[, !grepl("NAME", colnames(metadata_frame))]
-      metadata_frame <-
-        metadata_frame[, !(
-          colnames(metadata_frame) %in% c("VALIDFR", "VALIDTO")
-        )]
-      descendent_id <- database_add_descendent(
+  metadata_frame <- as.data.frame(sf_object)
+  metadata_frame <- metadata_frame[, colnames(metadata_frame) != "geometry"]
+  metadata_frame <-
+    metadata_frame[, !grepl("NAME", colnames(metadata_frame))]
+  metadata_frame <-
+    metadata_frame[, !(
+      colnames(metadata_frame) %in% c("VALIDFR", "VALIDTO")
+    )]
+  descendent_id <- database_add_descendent(
+    dbname = dbname,
+    metadata = metadata_frame,
+    standardized_name = NULL,
+    readable_descendent_name = sf_object$ISO
+  )
+  for(alias_idx in
+    c(
+      which(colnames(sf_object) == 'ISO'),
+      which(grepl("NAME", colnames(sf_object)))
+    )
+  ){
+    alias <- sf_object[[alias_idx]][1]
+    if(grepl("^\n \r$", alias)){
+      next
+    }
+    location_id <- descendent_id
+    tryCatch({
+      database_add_location_alias(
         dbname = dbname,
-        metadata = metadata_frame,
-        standardized_name = NULL,
-        readable_descendent_name = sf_object$ISO
+        location_id = descendent_id,
+        alias = alias
       )
-      for(alias_idx in
-        c(
-          which(colnames(sf_object) == 'ISO'),
-          which(grepl("NAME", colnames(sf_object)))
-        )
-      ){
-        alias <- sf_object[[alias_idx]][1]
-        if(grepl("^\n \r$", alias)){
-          next
-        }
-        location_id <- descendent_id
-        tryCatch({
-          database_add_location_alias(
-            dbname = dbname,
-            location_id = descendent_id,
-            alias = alias
-          )
-        },
-        error = function(e){
-          if(!(
-            grepl("UNIQUE constraint failed", e$message)
-          )){
-            stop(paste(
-              "The only way creating an alias should fail is",
-              "if the alias is already in the database,",
-              "but it failed with message:",
-              e$message
-            ))
-          }
-        })
+    },
+    error = function(e){
+      if(!(
+        grepl("UNIQUE constraint failed", e$message)
+      )){
+        stop(paste(
+          "The only way creating an alias should fail is",
+          "if the alias is already in the database,",
+          "but it failed with message:",
+          e$message
+        ))
       }
-      tryCatch({
-        geometry <- sf_object$geometry
-        time_left <- "1800-01-01"
-        time_right <- "2020-01-01"
-        database_add_location_geometry(
-          location_id = location_id,
-          time_left = time_left,
-          time_right = time_right,
-          geometry = geometry,
-          dbname = dbname
-        )
-      },
-      error = function(e){
-      },
-      silent = T)
-      unlink(destination)
+    })
+  }
+  tryCatch({
+    geometry <- sf_object$geometry
+    time_left <- "1800-01-01"
+    time_right <- "2020-01-01"
+    database_add_location_geometry(
+      location_id = location_id,
+      time_left = time_left,
+      time_right = time_right,
+      geometry = geometry,
+      dbname = dbname
+    )
+  },
+  error = function(e){
+  },
+  silent = T)
 
   for(msg in error_messages){
     message(msg)
@@ -505,7 +506,7 @@ find_geometry_source <- function(
   sf_object,
   source = NULL,
   match_threshold = 1e-6
-){
+  ){
 
   error_messages <- c('')
 
@@ -544,14 +545,14 @@ find_geometry_source <- function(
 
       for(intersection in 1:length(intersection_matrix)){
         index <- intersection_indices[intersection]
-        this_intersection <- st_intersectiion(
+        this_intersection <- sf::st_intersection(
           all_geometries$geometry[index],
           tmp_sf$geometry[intersection_matrix[intersection] ]
         )
 
-        this_area <- st_area(this_intersection)
-        container_area <- st_area(all_geometries$geometry[index])
-        contained_area <- st_area(
+        this_area <- sf::st_area(this_intersection)
+        container_area <- sf::st_area(all_geometries$geometry[index])
+        contained_area <- sf::st_area(
           tmp_sf$geometry[intersection_matrix[intersection] ]
         )
         ## Also set depth
@@ -562,7 +563,7 @@ find_geometry_source <- function(
         partial_i <- which(as.numeric(area_difference_1) < match_threshold)
         if(length(partial_i) > 0){
           tmp_sf$source[
-            (intersection_matrix[intersection])[exact_i]
+          (intersection_matrix[intersection])[exact_i]
           ] <- all_geometries$name[index]
         }
 
@@ -572,7 +573,7 @@ find_geometry_source <- function(
         exact_i <- which(as.numeric(area_difference_2) < match_threshold)
         if(length(exact_i) > 0){
           tmp_sf$exact_match[
-            (intersection_matrix[intersection])[exact_i]
+          (intersection_matrix[intersection])[exact_i]
           ] <- TRUE
         }
       }

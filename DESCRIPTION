@@ -21,7 +21,8 @@ Imports:
     tibble,
     tidyr,
     reshape2,
-    stats
+    stats,
+    rlang
 Suggests: 
     readxl,
     rgdal,

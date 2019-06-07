@@ -5,6 +5,7 @@
 #' @param location_name Location name to generate shapefiles for.
 #' @param thorough Logical, whether to include all levels of the location...
 #' @return Array of location shapefiles???
+#' @importFrom rlang .data
 #' @export
 create_location_sf <- function(location_name, thorough=FALSE){
   original_location_name <- location_name
@@ -121,7 +122,7 @@ create_location_sf <- function(location_name, thorough=FALSE){
     c('ISO_level', 'arg_idx', 'pipe_idx', 'thr_idx')
   ## JK : There should be a better way to do this
   ungrouped_shapefiles <- ungrouped_shapefiles %>%
-    dplyr::group_by(arg_idx, pipe_idx, thr_idx) %>%
+    dplyr::group_by(.data$arg_idx, .data$pipe_idx, .data$thr_idx) %>%
     do({
       tmp <- .
       tmp$ISO_A2_level <- max(tmp$ISO_level)
@@ -234,25 +235,25 @@ telescoping_standardize <- function(
   }
   all_names <- unlist(all_names)
   location_sf$standardized_name <- all_names[location_sf$location_name]
-  location_sf <- dplyr::group_by(location_sf, arg_idx, pipe_idx)
+  location_sf <- dplyr::group_by(location_sf, .data$arg_idx, .data$pipe_idx)
   location_sf <- dplyr::summarize(
     location_sf,
     standardized_name = ifelse(
-      any(is.na(standardized_name)),
+      any(is.na(.data$standardized_name)),
       as.character(NA),
-      standardized_name[which.max(thr_idx)]
+      .data$standardized_name[which.max(.data$thr_idx)]
     )
   )
   location_sf <- dplyr::ungroup(location_sf)
-  location_sf <- dplyr::group_by(location_sf, arg_idx)
+  location_sf <- dplyr::group_by(location_sf, .data$arg_idx)
   location_sf <- dplyr::summarize(
     location_sf,
     standardized_name = ifelse(
-        any(is.na(standardized_name)),
+        any(is.na(.data$standardized_name)),
         as.character(NA),
-        paste(standardized_name, collapse = "|")
+        paste(.data$standardized_name, collapse = "|")
     )
   )
   location_sf <- dplyr::ungroup(location_sf)
-  return(setNames(location_sf$standardized_name, original_name))
+  return(stats::setNames(location_sf$standardized_name, original_name))
 }

@@ -17,7 +17,7 @@ standardize_name <- function(
   location,
   scope="",
   metadata,
-  dbname=NULL,
+  dbname=default_database_filename(),
   strict_scope=TRUE,
   depth=NA,
   ...
@@ -28,10 +28,6 @@ standardize_name <- function(
       "This function takes a single scope.",
       "For multiple scopes, see telescoping_standardize"
     ))
-  }
-  ## Set database name if default
-  if (is.null(dbname)){
-    dbname <- default_database_filename()
   }
 
   location_clean <- standardize_location_strings(location)
@@ -44,7 +40,7 @@ standardize_name <- function(
           dbname = dbname
       )
     if(length(rc) == length(location)){
-        return(setNames(rc, original_location))
+        return(stats::setNames(rc, original_location))
     }
   },
   silent = T)
@@ -61,9 +57,9 @@ standardize_name <- function(
   ## cleaning here will be faster than for each match maybe
   names_b_data <- dplyr::select(
     db_scoped,
-    id,
-    name = name,
-    depth = depth_from_source
+    .data$id,
+    name = .data$name,
+    depth = .data$depth_from_source
   )
   names_b_data$name <-
     standardize_location_strings(names_b_data$name)
@@ -81,9 +77,9 @@ standardize_name <- function(
   if(sum(is.na(matches_)) > 0){
       names_b_data <- dplyr::select(
                                 db_scoped,
-                                id,
-                                name = readable_name,
-                                depth = depth_from_source
+                                .data$id,
+                                name = .data$readable_name,
+                                depth = .data$depth_from_source
                             )
     names_b_data$name <-
       standardize_location_strings(names_b_data$name)
@@ -97,9 +93,9 @@ standardize_name <- function(
   if (sum(is.na(matches_)) > 0){
       names_b_data <- dplyr::select(
                                  db_scoped,
-                                 id,
-                                 name = alias,
-                                 depth = depth_from_source
+                                 .data$id,
+                                 name = .data$alias,
+                                 depth = .data$depth_from_source
                              )
     names_b_data$name <-
       standardize_location_strings(names_b_data$name)
@@ -111,9 +107,9 @@ standardize_name <- function(
   }
 
   if(all(is.na(matches_))){
-    return(setNames(matches_, original_location))
+    return(stats::setNames(matches_, original_location))
   }
-  return(setNames(db_scoped$name[matches_], original_location))
+  return(stats::setNames(db_scoped$name[matches_], original_location))
 }
 
 
@@ -243,7 +239,7 @@ match_names <- function(name_a, names_b_data,
 create_standardized_name <- function(name,
   parent=NA,
   check_aliases=FALSE,
-  dbname=NULL,
+  dbname=default_database_filename(),
   verbose=FALSE
 ){
   ## Do a couple of checks
@@ -263,11 +259,6 @@ create_standardized_name <- function(name,
   }
 
   ## Load database
-  ## Set database name if default
-  if (is.null(dbname)){
-    dbname <- default_database_filename()
-  }
-
   ## Standardize the location name
   name <- standardize_location_strings(name)
 
@@ -374,30 +365,32 @@ standardize_name_local <- function(
   scope="",
   metadata,
   return_match_scores=FALSE,
-  ...
+  ...,
+  type = NULL
 ){
-  try({
-    rc <- sapply(
-      location,
-      database_standardize_name,
-      source = scope,
-      dbname = dbname
-    )
-    if(length(rc) == length(location)){
-      return(rc)
-    }
-  },
-  silent = T)
+  ## JK: I think this shouldn't be part of the local version
+  # try({
+  #   rc <- sapply(
+  #     location,
+  #     database_standardize_name,
+  #     source = scope,
+  #     dbname = dbname
+  #   )
+  #   if(length(rc) == length(location)){
+  #     return(rc)
+  #   }
+  # },
+  # silent = T)
   ## limit database and alias_database to scope and metadata
   db_scoped <- metadata
   if (!is.null(scope)){
     db_scoped <- dplyr::filter(
       db_scoped,
-      grepl(scope, id) & id != scope
+      grepl(.data$scope, .data$id) & .data$id != .data$scope
     )
   }
-  ## JK : There should be a better way to write this code:
-  if (exists("type")){
+  ## JK : This seems better
+  if(!is.null(type)){
     db_scoped <- db_scoped[type == db_scoped[["type"]], ]
   }
 
