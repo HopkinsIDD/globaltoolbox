@@ -4,9 +4,11 @@ r:
   - oldrel
   - release
   - devel
-after_success:
-  - Rscript -e 'covr::codecov()'
 apt_packages:
   - libgdal1-dev
   - libproj-dev
   - libudunits2-dev
+r_github_packages:
+  - r-lib/covr
+after_success:
+  - Rscript -e 'covr::codecov()'
