@@ -295,10 +295,10 @@ get_database_id_from_name <- function(
     WHERE name is {name}"
   rc <- DBI::dbGetQuery(con, glue::glue_sql(.con = con, query))
 
+  RSQLite::dbDisconnect(con)
   if (length(rc$id) != 1){
     stop(paste("Ambiguous location", name, "has", nrow(rc), "location_ids"))
   }
-  RSQLite::dbDisconnect(con)
   return(rc$id)
 }
 

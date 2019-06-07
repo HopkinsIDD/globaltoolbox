@@ -39,7 +39,7 @@ load_gadm <- function(
     print(ISO_A1)
     destination <- tempfile(fileext = '.rds')
 
-                                        # Download GADM for the country
+    ## Download GADM for the country
     suppressWarnings(try({
       ISO_level <- 0
       website <- paste(
@@ -54,7 +54,7 @@ load_gadm <- function(
     },
     silent = T))
 
-                                        # if GADM file downloaded correctly process it
+    ## if GADM file downloaded correctly process it
     if(file.exists(destination) & (file.size(destination) > 0)){
       country_data <- sf::st_as_sf(readRDS(destination))
       country_data$type <- 'ISO_A1'
@@ -263,11 +263,8 @@ load_gadm <- function(
               })
             }
           }
-          geometry <- tmp_data$geometry
-          time_left <- "1800-01-01"
-          time_right <- "2020-01-01"
           tryCatch({
-            geometry <- country_data$geometry
+            geometry <- tmp_data$geometry
             time_left <- "1800-01-01"
             time_right <- "2020-01-01"
             database_add_location_geometry(
@@ -370,8 +367,9 @@ load_sf <- function(
   while(is.na(any(sf_object$depth))){
     sf_object$source_updated <- FALSE
     ## Search for a containing location at depth whatever
-    for(source in unique(sf_object$source)){
-
+    for(source in unique(
+      sf_object$source[!sf_object$finished]
+    )){
       if(is.na(source)){
         tmp_sf <- sf_object[is.na(sf_object$source),]
         source <- NULL
@@ -511,7 +509,7 @@ find_geometry_source <- function(
   error_messages <- c('')
 
   sf_object$depth <- NA
-  sf_object$source <- as.character(NA)
+  sf_object$source <- ""
   sf_object$exact_match <- FALSE
   sf_object$finished <- FALSE
   sf_object$source_updated <- FALSE
@@ -521,20 +519,22 @@ find_geometry_source <- function(
 
     for(source in unique(sf_object$source)){
 
-      if(is.na(source)){
-        tmp_sf <- sf_object[is.na(sf_object$source),]
-        source <- NULL
-        stop("This case is not yet working")
-      } else {
-        tmp_sf <- sf_object[sf_object$source == source,]
-      }
+      tmp_idx <- which(sf_object$source == source)
 
       all_geometries <- get_location_geometry(
         source = source,
         depth = 1,
         strict_scope = TRUE
       )
-      intersection_matrix <- sf::st_intersects(all_geometries, tmp_sf)
+
+      if(nrow(all_geometries) == 0){
+        next
+      }
+      if(sf::st_crs(all_geometries) != sf::st_crs(sf_object)){
+        browser()
+      }
+      intersection_matrix <-
+        sf::st_intersects(all_geometries, sf_object[tmp_idx, ])
 
       ## We only need the geometries from that this source that intersect
       intersection_indices <- sapply(intersection_matrix, length) > 0
@@ -544,43 +544,48 @@ find_geometry_source <- function(
       ## Now we find containment relationships
 
       for(intersection in 1:length(intersection_matrix)){
-        index <- intersection_indices[intersection]
+        index <- intersection_matrix[[intersection]]
+
         this_intersection <- sf::st_intersection(
-          all_geometries$geometry[index],
-          tmp_sf$geometry[intersection_matrix[intersection] ]
+          all_geometries$geometry[intersection],
+          sf_object[tmp_idx, ]$geometry[index]
         )
 
         this_area <- sf::st_area(this_intersection)
-        container_area <- sf::st_area(all_geometries$geometry[index])
-        contained_area <- sf::st_area(
-          tmp_sf$geometry[intersection_matrix[intersection] ]
-        )
+        container_area <- sf::st_area(all_geometries$geometry[intersection])
+        contained_area <- sf::st_area(sf_object[tmp_idx, ]$geometry[index])
         ## Also set depth
 
         ## If containment, we set the source.
         area_difference_1 <-
-          (this_area - contained_area) / contained_area
+          abs(this_area - contained_area) / contained_area
         partial_i <- which(as.numeric(area_difference_1) < match_threshold)
         if(length(partial_i) > 0){
-          tmp_sf$source[
-          (intersection_matrix[intersection])[exact_i]
-          ] <- all_geometries$name[index]
+          tmp_source <- sf_object$source
+          tmp_source[tmp_idx][(index)[partial_i] ] <- all_geometries$name[intersection]
+          sf_object[tmp_idx,]$source <- tmp_source
+          sf_object[tmp_idx, ]$source[(index)[partial_i]] <-
+            all_geometries$name[intersection]
+          sf_object[tmp_idx, ]$source_updated[(index)[partial_i]] <-
+            TRUE
         }
 
         ## If we have an exact match, then mark for merger
         area_difference_2 <-
-          (this_area - container_area) / container_area
+          abs(this_area - container_area) / container_area
         exact_i <- which(as.numeric(area_difference_2) < match_threshold)
         if(length(exact_i) > 0){
-          tmp_sf$exact_match[
-          (intersection_matrix[intersection])[exact_i]
+          sf_object[tmp_idx, ]$exact_match[
+          (index)[exact_i]
           ] <- TRUE
         }
       }
     }
+    sf_object$finished <- sf_object$finished | (!sf_object$source_updated)
   }
 
   for(msg in error_messages){
     message(msg)
   }
+  return(sf_object)
 }

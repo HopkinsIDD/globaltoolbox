@@ -149,6 +149,15 @@ get_all_aliases <- function(
   return(rc)
 }
 
+#' @name get_location_geometry
+#' @title get_location_geometry
+#' @include database_management.R
+#' @description Pull geometry associated with a particular location or set of locations at particular times
+#' @param location The name of the location to search for.  If there are multiple matches, all will be returned.  If this is NULL, every location below the source will be returned.
+#' @param source A location to only search within.  Only locations contained within this location will be searched.  If this is "", every location will be searched.
+
+#' @param dbname The name of the database to connect to
+#' @export
 get_location_geometry <- function(
   location=NULL,
   source="",
@@ -206,16 +215,13 @@ get_location_geometry <- function(
   }
 
   rc <- DBI::dbGetQuery(con, glue::glue_sql(.con = con, query))
+  RSQLite::dbDisconnect(con)
+
   rc$depth_from_source <- rc$depth
   rc$depth <- NULL
-geojsonsf::geojson_sf(tmp$geometry)
-  # metadata.frame <- dplyr::bind_rows(
-  #   lapply(rc$metadata, process_single_metadata_frame)
-  # )
-  # rc <- dplyr::bind_cols(
-  #   rc[, -which(colnames(rc) %in% c('standard', 'metadata'))],
-  #   metadata.frame
-  # )
-  RSQLite::dbDisconnect(con)
+  if(nrow(rc) > 0){
+    rc$geometry <- geojsonsf::geojson_sf(rc$geometry)$geometry
+  }
+  rc <- sf::st_as_sf(rc)
   return(rc)
 }
