@@ -198,7 +198,13 @@ database_add_location <- function(
     VALUES
       ({name},{readable_name},{metadata})"
 
-  DBI::dbClearResult(DBI::dbSendQuery(con, glue::glue_sql(.con = con, query)))
+  tryCatch({
+    DBI::dbClearResult(DBI::dbSendQuery(con, glue::glue_sql(.con = con, query)))
+  },
+  error = function(e){
+    RSQLite::dbDisconnect(con)
+    stop(e$message)
+  })
   rc <- DBI::dbGetQuery(
     con,
     "SELECT DISTINCT last_insert_rowid() FROM locations"
@@ -222,7 +228,13 @@ database_add_hierarchy <- function(
   query <- "INSERT INTO location_hierarchy
       (parent_id, descendent_id,depth)
     VALUES ({parent_id},{descendent_id},{depth})"
-  DBI::dbClearResult(DBI::dbSendQuery(con, glue::glue_sql(.con = con, query)))
+  tryCatch({
+    DBI::dbClearResult(DBI::dbSendQuery(con, glue::glue_sql(.con = con, query)))
+  },
+  error = function(e){
+    RSQLite::dbDisconnect(con)
+    stop(e$message)
+  })
   RSQLite::dbDisconnect(con)
   return()
 }
@@ -246,7 +258,13 @@ database_add_location_geometry <- function(
       (location_id, time_left, time_right, geometry)
     VALUES
       ({location_id},{time_left},{time_right},{geometry})"
-  DBI::dbClearResult(DBI::dbSendQuery(con, glue::glue_sql(.con = con, query)))
+  tryCatch({
+    DBI::dbClearResult(DBI::dbSendQuery(con, glue::glue_sql(.con = con, query)))
+  },
+  error = function(e){
+    RSQLite::dbDisconnect(con)
+    stop(e$message)
+  })
   RSQLite::dbDisconnect(con)
   return()
 }
@@ -268,7 +286,13 @@ database_add_location_alias <- function(
       (location_id, alias)
     VALUES
       ({location_id},{alias})"
-  DBI::dbClearResult(DBI::dbSendQuery(con, glue::glue_sql(.con = con, query)))
+  tryCatch({
+    DBI::dbClearResult(DBI::dbSendQuery(con, glue::glue_sql(.con = con, query)))
+  },
+  error = function(e){
+    RSQLite::dbDisconnect(con)
+    stop(e$message)
+  })
   RSQLite::dbDisconnect(con)
   return()
 }
@@ -293,7 +317,13 @@ get_database_id_from_name <- function(
     id
   FROM locations
     WHERE name is {name}"
-  rc <- DBI::dbGetQuery(con, glue::glue_sql(.con = con, query))
+  tryCatch({
+    rc <- DBI::dbGetQuery(con, glue::glue_sql(.con = con, query))
+  },
+  error = function(e){
+    RSQLite::dbDisconnect(con)
+    stop(e$message)
+  })
 
   RSQLite::dbDisconnect(con)
   if (length(rc$id) != 1){
@@ -335,13 +365,19 @@ database_merge_locations <- function(
     link_field <- all_iterations$link_field[it]
     location_field <- all_iterations$location_field[it]
     location_id <- all_iterations$location_id[it]
-    DBI::dbClearResult(DBI::dbSendQuery(
-      con,
-      glue::glue_sql(.con = con, add_query)
-    ))
-    DBI::dbClearResult(DBI::dbSendQuery(
-      con,
-      glue::glue_sql(.con = con, drop_query)
-    ))
+    tryCatch({
+      DBI::dbClearResult(DBI::dbSendQuery(
+        con,
+        glue::glue_sql(.con = con, add_query)
+      ))
+      DBI::dbClearResult(DBI::dbSendQuery(
+        con,
+        glue::glue_sql(.con = con, drop_query)
+      ))
+    },
+    error = function(e){
+      RSQLite::dbDisconnect(con)
+      stop(e$message)
+    })
   }
 }
