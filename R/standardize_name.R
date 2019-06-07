@@ -32,7 +32,7 @@ standardize_name <- function(
 
   location_clean <- standardize_location_strings(location)
 
-  try({
+  suppressWarnings(try({
       rc <- sapply(
           location_clean,
           database_standardize_name,
@@ -43,7 +43,7 @@ standardize_name <- function(
         return(stats::setNames(rc, original_location))
     }
   },
-  silent = T)
+  silent = TRUE))
   ## limit database and alias_database to scope and metadata
   db_scoped <- get_all_aliases(
     source = scope,
@@ -380,7 +380,7 @@ standardize_name_local <- function(
   #     return(rc)
   #   }
   # },
-  # silent = T)
+  # silent = TRUE)
   ## limit database and alias_database to scope and metadata
   db_scoped <- metadata
   if (!is.null(scope)){

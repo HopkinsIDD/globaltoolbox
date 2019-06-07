@@ -40,7 +40,7 @@ load_gadm <- function(
     destination <- tempfile(fileext = '.rds')
 
                                         # Download GADM for the country
-    try({
+    suppressWarnings(try({
       ISO_level <- 0
       website <- paste(
         "http://biogeo.ucdavis.edu/data/gadm2.8/rds/",
@@ -52,7 +52,7 @@ load_gadm <- function(
       )
       utils::download.file(website, destination, mode = 'wb')
     },
-    silent = T)
+    silent = T))
 
                                         # if GADM file downloaded correctly process it
     if(file.exists(destination) & (file.size(destination) > 0)){
@@ -142,7 +142,7 @@ load_gadm <- function(
         warning("Over 100000 errors")
       }
       destination <- tempfile(fileext = ".rds")
-      try({
+      suppressWarnings(try({
         ISO_level <- ISO_level + 1
         website <- paste(
           "http://biogeo.ucdavis.edu/data/gadm2.8/rds/",
@@ -154,7 +154,7 @@ load_gadm <- function(
         )
         utils::download.file(website, destination, mode = 'wb')
       },
-      silent = T)
+      silent = T))
       if(file.exists(destination) & (file.size(destination) > 0)){
         country_data <- sf::st_as_sf(readRDS(destination))
         country_data$type <- paste0('ISO_A2_L', ISO_level)
