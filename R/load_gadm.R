@@ -362,6 +362,9 @@ load_sf <- function(
 ){
   con <- DBI::dbConnect(drv = RSQLite::SQLite(), dbname)
 
+  ## Find non overlapping regions by extent
+
+  
   if(!(source == '')){
     warning("This is not currently implemented")
   }
@@ -382,7 +385,7 @@ load_sf <- function(
         depth > 0
       )
     AND
-      ancestor_id IN (
+      parent_id IN (
       SELECT
         parent_id
       FROM
@@ -408,26 +411,26 @@ load_sf <- function(
   ## create metadata frame
   metadata_frame <- tibble::as_tibble(sf_object)[, metadata_columns]
   for(idx in 1:nrow(sf_object)){
-    tmp_sources <- sources[
-      sources$name == sf_object[[name_column]][idx],
-    ]
+    print(paste(idx, " / ", nrow(sf_object)))
+    tmp_sources <- sources[idx,]
 
     if(tmp_sources$exact_match){
       warning("This implementation is fragile")
-
-      descendent_id <- database_add_descendent(
-        dbname = dbname,
-        metadata = metadata_frame[idx,],
-        standardized_name = sources$source[idx],
-        readable_descendent_name = sf_object[[name_column]][idx]
-      )
-
-      database_merge_locations(
-        descendent_id,
-        get_database_id_from_name(sources$source[idx]),
-        dbname=dbname
-      )
-    } else {
+      
+                                        # try({
+                                        # descendent_id <- database_add_descendent(
+                                        # dbname = dbname,
+                                        # metadata = metadata_frame[idx,],
+                                        # standardized_name = tmp_sources$source,
+                                        # readable_descendent_name = sf_object[[name_column]][idx]
+                                        # )
+                                        # 
+                                        # database_merge_locations(
+                                        # descendent_id,
+                                        # get_database_id_from_name(sources$source[idx]),
+                                        # dbname=dbname
+                                        # )})
+                                        #     } else {
 
       ## create standardized name
       warning("Not using check_aliases because it is currently too sensitive")
@@ -437,9 +440,10 @@ load_sf <- function(
         parent = tmp_sources$source,
         check_aliases = FALSE
       )
+        try({
       descendent_id <- database_add_descendent(
         dbname = dbname,
-        metadata = metadata_frame,
+        metadata = metadata_frame[idx,],
         standardized_name = tmp_sources$source,
         readable_descendent_name = sf_object[[name_column]][idx]
       )
@@ -468,7 +472,7 @@ load_sf <- function(
         descendent_id <- all_children
         depth <- actual_children$depth_from_source
 
-        browser()
+        parent_id = parent_id[[1]]
         tryCatch({
           DBI::dbClearResult(DBI::dbSendQuery(
             con,
@@ -488,6 +492,7 @@ load_sf <- function(
         ## Increase should be by one
           warning("Not yet connecting children of entered locations")
       }
+      })
     }
   }
 }
@@ -560,11 +565,8 @@ find_geometry_source <- function(
         if(length(partial_i) > 0){
           tmp_source <- sf_object$source
           tmp_source[tmp_idx][(index)[partial_i] ] <- all_geometries$name[intersection]
-          sf_object[tmp_idx,]$source <- tmp_source
-          sf_object[tmp_idx, ]$source[(index)[partial_i]] <-
-            all_geometries$name[intersection]
-          sf_object[tmp_idx, ]$source_updated[(index)[partial_i]] <-
-            TRUE
+          sf_object$source <- tmp_source
+          sf_object[tmp_idx, ]$source_updated[(index)[partial_i]] <- TRUE
         }
 
         ## If we have an exact match, then mark for merger

@@ -182,6 +182,7 @@ create_location_sf <- function(location_name, thorough=FALSE){
 #' @export
 telescoping_standardize <- function(
   location_name,
+  max_jump_depth = NA,
   dbname=default_database_filename()
 ){
   original_name <- location_name
@@ -214,6 +215,7 @@ telescoping_standardize <- function(
         standard_names <- standardize_name(
           gsub('.*:', '', nonstandard_names),
           scope = "",
+          depth = max_jump_depth,
           dbname = dbname
         )
      } else {
@@ -224,6 +226,7 @@ telescoping_standardize <- function(
         standard_names <- standardize_name(
           gsub('.*:', '', nonstandard_names),
           scope = scope,
+          depth = max_jump_depth,
           dbname = dbname
         )
       }
