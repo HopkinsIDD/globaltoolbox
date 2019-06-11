@@ -175,7 +175,8 @@ get_location_geometry <- function(
     location_geometries.id as geometry_id,
     location_geometries.time_left,
     location_geometries.time_right,
-    location_geometries.geometry
+    location_geometries.geometry,
+    location_hierarchy.depth
   FROM
     (locations
       LEFT JOIN
@@ -188,9 +189,9 @@ get_location_geometry <- function(
       locations.id = location_geometries.location_id
     WHERE
       1=1"
-   if(!is.null(location)){
-      query <- paste(query, "AND name is {location}")
-   }
+  if(!is.null(location)){
+     query <- paste(query, "AND name is {location}")
+  }
   if(!is.na(time_left)){
     query <- paste(query, "AND {time_left} < time_right")
   }

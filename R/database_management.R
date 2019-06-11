@@ -160,7 +160,7 @@ create_database <- function(dbname = default_database_filename()){
        );"
     )
   )
-  ## Populate with WHO regions
+  ## Populate with a root
   RSQLite::dbDisconnect(con)
   try({
     loc_id <- database_add_location("", "", NULL, dbname)
@@ -332,11 +332,11 @@ get_database_id_from_name <- function(
   return(rc$id)
 }
 
-#' @name database_merge_location
+#' @name database_merge_locations
 #' @title database_merge_locations
 #' @description combine two locations by replacing all references to one with the other, and adding the first as an alias for the second.
-#' @param from The location id to delete from the database
-#' @param to The location id to merge \\code{from} into
+#' @param from The name of the location to merge into another location (this location will be deleted)
+#' @param to The name of the location to merge another location into (this location will contain all data for both locations)
 #' @param dbname Name of the database. Defaults to default location.
 database_merge_locations <- function(
   from,
@@ -346,6 +346,12 @@ database_merge_locations <- function(
 
   con <- DBI::dbConnect(drv = RSQLite::SQLite(), dbname)
 
+  if(class(from) == 'character'){
+    from <- get_database_id_from_name(from,dbname)
+  }
+  if(class(to) == 'character'){
+    to <- get_database_id_from_name(to,dbname)
+  }
   add_query <- "UPDATE OR IGNORE {`table_name`}
     SET
       {`location_field`} = {to}

@@ -1,7 +1,6 @@
 <!-- badges: start -->
-  [![Build Status](https://travis-ci.org/HopkinsIDD/globaltoolbox.svg?branch=master)](https://travis-ci.org/HopkinsIDD/globaltoolbox)
-  [![Codecov test coverage](https://codecov.io/gh/HopkinsIDD/globaltoolbox/branch/master/graph/badge.svg)](https://codecov.io/gh/HopkinsIDD/globaltoolbox?branch=master)
-  <!-- badges: end -->
+[![CRAN status](https://www.r-pkg.org/badges/version/globaltoolbox)](https://cran.r-project.org/package=globaltoolbox)
+<!-- badges: end -->
 
 # globaltoolbox
 

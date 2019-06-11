@@ -125,7 +125,7 @@ create_location_sf <- function(location_name, thorough=FALSE){
   ## JK : There should be a better way to do this
   ungrouped_shapefiles <- ungrouped_shapefiles %>%
     dplyr::group_by(.data$arg_idx, .data$pipe_idx, .data$thr_idx) %>%
-    do({
+    dplyr::do({
       tmp <- .
       tmp$ISO_A2_level <- max(tmp$ISO_level)
       tmp

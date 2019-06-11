@@ -351,198 +351,150 @@ standardize_gadm_rhs_time <- function(x){
 
 load_sf <- function(
   sf_object,
-  source,
+  sf_object_origin,
   name_column,
-  alias_column = c(),
+  source = '',
+  alias_columns = c(),
+  metadata_columns = c(),
   geometry_columns = "geometry",
   match_threshold = 1e-6,
   dbname = default_database_filename()
 ){
+  con <- DBI::dbConnect(drv = RSQLite::SQLite(), dbname)
+
+  if(!(source == '')){
+    warning("This is not currently implemented")
+  }
+  add_query <- "INSERT INTO location_hierarchy
+    (parent_id, descendent_id,depth)
+    VALUES ({parent_id},{descendent_id},{depth})"
+  update_query <- "UPDATE OR IGNORE location_hierarchy
+    SET
+      depth = depth + 1
+    WHERE
+      descendent_id IN (
+      SELECT
+        descendent_id
+      FROM
+        location_hierarchy
+      WHERE
+        parent_id = {descendent_id} AND
+        depth > 0
+      )
+    AND
+      ancestor_id IN (
+      SELECT
+        parent_id
+      FROM
+        location_hierarchy
+      WHERE
+        descendent_id = {descendent_id} AND 
+        depth > 0
+      )"
 
   error_messages <- c('')
+
+  sf_object$origin <- sf_object_origin
+  if('origin' %in% c(metadata_columns,name_column,alias_columns,geometry_columns)){
+    stop("origin is a reserved name, and cannot be a column name.  Please rename")
+  }
+  metadata_columns <- c(metadata_columns,'origin')
 
   sources <- find_geometry_source(
     sf_object,
     source,
     match_threshold
   )
+  ## create metadata frame
+  metadata_frame <- tibble::as_tibble(sf_object)[, metadata_columns]
   for(idx in 1:nrow(sf_object)){
     tmp_sources <- sources[
-      sources$name == sf_object[name_column]
+      sources$name == sf_object[[name_column]][idx],
     ]
-    ## create metadata frame
-    warning("Not yet implementing metadata")
 
-    if(sources$exact_match[idx]){
+    if(tmp_sources$exact_match){
       warning("This implementation is fragile")
 
       descendent_id <- database_add_descendent(
         dbname = dbname,
-        metadata = metadata_frame,
+        metadata = metadata_frame[idx,],
         standardized_name = sources$source[idx],
         readable_descendent_name = sf_object[[name_column]][idx]
       )
 
-      database_merge_location(
+      database_merge_locations(
         descendent_id,
         get_database_id_from_name(sources$source[idx]),
         dbname=dbname
       )
-      stop("Not yet implemented")
     } else {
 
       ## create standardized name
-
+      warning("Not using check_aliases because it is currently too sensitive")
+      standardized_name <- create_standardized_name(
+        dbname = dbname,
+        name = tmp_sources$name,
+        parent = tmp_sources$source,
+        check_aliases = FALSE
+      )
       descendent_id <- database_add_descendent(
         dbname = dbname,
         metadata = metadata_frame,
-        standardized_name = sources$source[idx],
-        readable_descendent_name = sf_object[[name_column]]
+        standardized_name = tmp_sources$source,
+        readable_descendent_name = sf_object[[name_column]][idx]
       )
-    }
-  }
-  sf_object$depth <- NA
-  sf_object$source <- as.character(NA)
-  sf_object$exact_match <- FALSE
-  while(is.na(any(sf_object$depth))){
-    sf_object$source_updated <- FALSE
-    ## Search for a containing location at depth whatever
-    for(source in unique(
-      sf_object$source[!sf_object$finished]
-    )){
-      if(is.na(source)){
-        tmp_sf <- sf_object[is.na(sf_object$source),]
-        source <- NULL
-        stop("This case is not yet working")
-      } else {
-        tmp_sf <- sf_object[sf_object$source == source,]
+      potential_children <- get_location_geometry(source=tmp_sources$source)
+      if(nrow(potential_children) == 0){
+        sf::st_crs(potential_children) <- sf::st_crs(sf_object)
       }
-      all_geometries <- get_location_geometry(
-        source = source,
-        depth = 1,
-        strict_scope = TRUE
+      partial_children <- sf::st_intersects(
+        sf_object[idx,],
+        potential_children
+      )[[1]]
+      potential_children <- potential_children[partial_children,]
+      children_intersections <- sf::st_intersection(
+        sf_object[idx,],
+        potential_children
       )
-      intersection_matrix <- sf::st_intersects(all_geometries, tmp_sf)
+      ci_area <- sf::st_area(children_intersections)
+      cf_area <- sf::st_area(potential_children)
+      actual_children_idx <- which(as.numeric(abs(ci_area - cf_area)/cf_area) < match_threshold)
+      actual_children <- potential_children[actual_children_idx, ]
+      if(nrow(actual_children) > 0){
+        all_children <- actual_children$location_id
+        ## Add hierarchy to each actual child.
+        ## The depth is the depth from the parent to that child - 1
+        parent_id <- descendent_id
+        descendent_id <- all_children
+        depth <- actual_children$depth_from_source
 
-      ## We only need the geometries from that this source that intersect
-      intersection_indices <- sapply(intersection_matrix, length) > 0
-      all_geometries <- all_geometries[intersection_indices, ]
-      intersection_matrix <- intersection_matrix[intersection_indices]
+        browser()
+        tryCatch({
+          DBI::dbClearResult(DBI::dbSendQuery(
+            con,
+            glue::glue_sql(.con = con, add_query)
+          ))
+          DBI::dbClearResult(DBI::dbSendQuery(
+            con,
+            glue::glue_sql(.con = con, update_query)
+          ))
+        },
+        error = function(e){
+            RSQLite::dbDisconnect(con)
+            stop(e$message)
+        })
 
-      ## Now we find containment relationships
-
-      for(intersection in 1:length(intersection_matrix)){
-        index <- intersection_indices[intersection]
-        this_intersection <- sf::st_intersection(
-          all_geometries$geometry[index],
-          tmp_sf$geometry[intersection_matrix[intersection] ]
-        )
-
-        this_area <- sf::st_area(this_intersection)
-        container_area <- sf::st_area(all_geometries$geometry[index])
-        contained_area <- sf::st_area(
-          tmp_sf$geometry[intersection_matrix[intersection] ]
-        )
-        ## Also set depth
-
-        ## If containment, we set the source.
-        area_difference_1 <-
-          (this_area - contained_area) / contained_area
-        partial_i <- which(as.numeric(area_difference_1) < match_threshold)
-        if(length(partial_i) > 0){
-          tmp_sf$source[
-          (intersection_matrix[intersection])[exact_i]
-          ] <- all_geometries$name[index]
-        }
-
-        ## If we have an exact match, then mark for merger
-        area_difference_2 <-
-          (this_area - container_area) / container_area
-        exact_i <- which(as.numeric(area_difference_2) < match_threshold)
-        if(length(exact_i) > 0){
-          tmp_sf$exact_match[
-          (intersection_matrix[intersection])[exact_i]
-          ] <- TRUE
-        }
+        ## Increase depth of connections from parent(s) of source to child
+        ## Increase should be by one
+          warning("Not yet connecting children of entered locations")
       }
     }
-    ## Anything that hasn't been updated by now didn't have a match
-    ## Source stays how it was before.
-
-
-  }
-  ## Every location should have a source and a depth now.
-  ## Create a new location/locat
-
-  metadata_frame <- as.data.frame(sf_object)
-  metadata_frame <- metadata_frame[, colnames(metadata_frame) != "geometry"]
-  metadata_frame <-
-    metadata_frame[, !grepl("NAME", colnames(metadata_frame))]
-  metadata_frame <-
-    metadata_frame[, !(
-      colnames(metadata_frame) %in% c("VALIDFR", "VALIDTO")
-    )]
-  descendent_id <- database_add_descendent(
-    dbname = dbname,
-    metadata = metadata_frame,
-    standardized_name = NULL,
-    readable_descendent_name = sf_object$ISO
-  )
-  for(alias_idx in
-    c(
-      which(colnames(sf_object) == 'ISO'),
-      which(grepl("NAME", colnames(sf_object)))
-    )
-  ){
-    alias <- sf_object[[alias_idx]][1]
-    if(grepl("^\n \r$", alias)){
-      next
-    }
-    location_id <- descendent_id
-    tryCatch({
-      database_add_location_alias(
-        dbname = dbname,
-        location_id = descendent_id,
-        alias = alias
-      )
-    },
-    error = function(e){
-      if(!(
-        grepl("UNIQUE constraint failed", e$message)
-      )){
-        stop(paste(
-          "The only way creating an alias should fail is",
-          "if the alias is already in the database,",
-          "but it failed with message:",
-          e$message
-        ))
-      }
-    })
-  }
-  tryCatch({
-    geometry <- sf_object$geometry
-    time_left <- "1800-01-01"
-    time_right <- "2020-01-01"
-    database_add_location_geometry(
-      location_id = location_id,
-      time_left = time_left,
-      time_right = time_right,
-      geometry = geometry,
-      dbname = dbname
-    )
-  },
-  error = function(e){
-  },
-  silent = T)
-
-  for(msg in error_messages){
-    message(msg)
   }
 }
 
 find_geometry_source <- function(
   sf_object,
-  source = NULL,
+  source = "",
   match_threshold = 1e-6
   ){
 
@@ -571,7 +523,12 @@ find_geometry_source <- function(
         next
       }
       if(sf::st_crs(all_geometries) != sf::st_crs(sf_object)){
-        browser()
+        if(is.na(sf::st_crs(all_geometries))){
+          sf::st_crs(all_geometries) <- sf::st_crs(sf_object)
+        }
+        if(is.na(sf::st_crs(sf_object))){
+          sf::st_crs(sf_object) <- sf::st_crs(all_geometries)
+        }
       }
       intersection_matrix <-
         sf::st_intersects(all_geometries, sf_object[tmp_idx, ])

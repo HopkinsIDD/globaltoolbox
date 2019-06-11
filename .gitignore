@@ -9,4 +9,4 @@ fakedatabase.sqlite
 /TAGS
 /tags
 *.sqlite
-*.sqlite
+*~
