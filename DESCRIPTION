@@ -1,10 +1,9 @@
 Package: globaltoolbox
 Title: Identify Location Names and Link with Other Data
 Version: 0.0.0.9000
-Author: "Shaun Truelove"
 Authors@R: c(
   person("Shaun", "Truelove", email = "shauntruelove@jhu.edu", role = c("aut")),
-  person("Joshua", "Kaminsky", email = "jkaminsky$jhu.edu", role = c("aut", "cre")))
+  person("Joshua", "Kaminsky", email = "jkaminsky@jhu.edu", role = c("aut", "cre")))
 Description: Allows users to standardize location names, and use those standardized names to extract data about the location.
 Depends: 
     R (>= 3.4)
@@ -22,16 +21,16 @@ Imports:
     tibble,
     tidyr,
     reshape2,
-    stats,
-    sf,
-    sp,
-    rlang
+    stats,  
+    sf,  
+    sp,  
+    rlang  
 Suggests: 
     readxl,
     rgdal,
     testthat,
-    covr
-Maintainer: Shaun Truelove <shauntruelove@jhu.edu>
+    covr,
+    httr
 License: GPL (>=2)
 Encoding: UTF-8
 LazyData: true

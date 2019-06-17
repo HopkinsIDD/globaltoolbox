@@ -6,10 +6,8 @@
 #' @param diseaes Disease of interest. Options currently include "measles" and "rubella"
 #' @param save_dir Where to save the xls file, if interested. If NULL, will not save.
 #' @param long_data Logical, whether long form is desired (default).
-#' @return 
+#' @return Tibble of reported incidence by month
 #' @export
-
-
 who_disease_incidence_month <- function(disease=c("measles", "rubella"), save_dir=NULL, long_data=TRUE) {
   
   if (is.na(disease)) {
@@ -48,7 +46,6 @@ who_disease_incidence_month <- function(disease=c("measles", "rubella"), save_di
   } else {
     return(incid_data)
   }
-  
 }
 
 
@@ -62,10 +59,8 @@ who_disease_incidence_month <- function(disease=c("measles", "rubella"), save_di
 #' @param diseaes Disease of interest. Options currently include "CRS","Diphtheria","JapEnc","Measles","Mumps","Ntetanus","Pertussis","Polio","Rubella","Ttetanus",and "Yfever".
 #' @param save_dir Where to save the xls file, if interested. If NULL, will not save.
 #' @param long_data Logical, whether long form is desired (default).
-#' @return 
+#' @return Tibble of reported incidence by year
 #' @export
-
-
 who_disease_incidence_year <- function(disease=c("CRS","Diphtheria","JapEnc","Measles","Mumps","Ntetanus","Pertussis","Polio","Rubella","Ttetanus","Yfever"),
                                        save_dir=NULL, long_data=TRUE) {
   
