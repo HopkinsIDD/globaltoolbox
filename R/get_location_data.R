@@ -1,14 +1,18 @@
 #' @include database_management.R
 
+
+
 #' @name get_location_metadata
 #' @title get_location_metadata
-#' @include database_management.R
 #' @description Pull metadata associated with a particular location or set of locations
 #' @param location The name of the location to search for.  If there are multiple matches, all will be returned.  If this is NULL, every location below the source will be returned.
 #' @param source A location to only search within.  Only locations contained within this location will be searched.  If this is NULL, every location will be searched.
 #' @param metadata_names The column names of metadata to pull.  The default is to pull all metadata.
 #' @param aliases Whether or not to also pull metadata for aliases of locations.
+#' @param strict_scope Whether to exclude the source from the results.
+#' @param depth How far down the tree from the source to look.  If NA, then the entire subtree will be searched.
 #' @param dbname The name of the database to connect to
+#' @return A data.frame containing the metadata for the appropriate locations.
 #' @export
 get_location_metadata <- function(
   location=NULL,
@@ -78,6 +82,11 @@ get_location_metadata <- function(
 
 
 
+#' @name process_single_metadata_frame
+#' @title process_single_metadata_frame
+#' @description Take a single metadata string and turn it into a data.frame
+#' @param frame A json string representing the metadata for an object.
+#' @return A data.frame
 process_single_metadata_frame <- function(frame){
   if(is.na(frame)){
     return(data.frame(missing = TRUE))
@@ -90,12 +99,21 @@ process_single_metadata_frame <- function(frame){
   return(frame)
 }
 
+
+
+#' @name get_all_aliases
+#' @title get_all_aliases
+#' @description Pull aliases associated with a particular location or set of locations
+#' @param location The name of the location to search for.  If there are multiple matches, all will be returned.  If this is NULL, every location below the source will be returned.
+#' @param source A location to only search within.  Only locations contained within this location will be searched.  If this is "", every location will be searched.
+#' @param strict_scope Whether to exclude the source from the results.
+#' @param depth How far down the tree from the source to look.  If NA, then the entire subtree will be searched.
+#' @param dbname The name of the database to connect to
+#' @return A data.frame containing the metadata for the appropriate locations.
 #' @export
 get_all_aliases <- function(
   location=NULL,
   source="",
-  metadata_names=NULL,
-  aliases=TRUE,
   strict_scope=TRUE,
   depth=NA,
   dbname = default_database_filename()
@@ -122,9 +140,6 @@ get_all_aliases <- function(
    if(!is.null(location)){
       query <- paste(query, "AND name is {location}")
    }
-  if(!aliases){
-    query <- paste(query, "AND alias is name")
-  }
   if(!is.null(source)){
     parent_id <- NA
     if(is.numeric(source)){
@@ -149,19 +164,22 @@ get_all_aliases <- function(
   return(rc)
 }
 
+
+
 #' @name get_location_geometry
 #' @title get_location_geometry
-#' @include database_management.R
 #' @description Pull geometry associated with a particular location or set of locations at particular times
 #' @param location The name of the location to search for.  If there are multiple matches, all will be returned.  If this is NULL, every location below the source will be returned.
 #' @param source A location to only search within.  Only locations contained within this location will be searched.  If this is "", every location will be searched.
-
+#' @param strict_scope Whether to exclude the source in the results
+#' @param depth How far down the tree from the source to search.  If NA, the entire subtree will be searched.
+#' @param time_left Only pull geometries who are valid at a time after this time
+#' @param time_right Only pull geometries who are valid at a time before this time
 #' @param dbname The name of the database to connect to
 #' @export
 get_location_geometry <- function(
   location=NULL,
   source="",
-  metadata_names=NULL,
   strict_scope=TRUE,
   depth=NA,
   time_left = NA,

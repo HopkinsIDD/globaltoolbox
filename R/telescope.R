@@ -1,15 +1,14 @@
-
+## JK: This line prevents warnings about free variables.
 if(getRversion() >= "2.15.1")  utils::globalVariables(c("."))
 
 #' @name create_location_sf
 #' @title match_names
 #' @description ???
 #' @param location_name Location name to generate shapefiles for.
-#' @param thorough Logical, whether to include all levels of the location...
-#' @return Array of location shapefiles???
+#' @param thorough Logical, whether to include all containing locations for each location.
+#' @return An sf object for each location.  This sf object also has various metadata about the location for use in other algorithms.
 #' @importFrom rlang .data
-#' @export
-create_location_sf <- function(location_name, thorough=FALSE){
+create_location_sf <- function(location_name, thorough = FALSE){
   original_location_name <- location_name
   location_name <- standardize_location_strings(location_name)
   location_array <- strsplit(location_name, split = '::')
@@ -170,20 +169,19 @@ create_location_sf <- function(location_name, thorough=FALSE){
 
 
 
-# ADD ARGUMENTS
-
-
 #' @name telescoping_standardize
 #' @title telescoping_standardize
-#' @description ???
-#' @param location_name Location name to generate shapefiles for.
+#' @description An expanded version of standardize_name that will attempt to validate all components of the location separately, and interpolate between them.
+#' @param location_name Location name(s) to generate shapefiles for.
+#' @param max_jump_depth Maximum distance between pieces of the location_names provided on the tree.  For example, to go from "A::D" to "::A::B::C::D" would require a jump of two nodes (B and C).
 #' @param dbname Filename of the database. Default will use the package-defined name.
-#' @return Location standized name???
+#' @return Standardized location names for each of location_name
 #' @export
 telescoping_standardize <- function(
   location_name,
   max_jump_depth = NA,
-  dbname=default_database_filename()
+  dbname = default_database_filename()
+  ## metadata = ??
 ){
   original_name <- location_name
   location_name <- standardize_location_strings(location_name)
@@ -191,8 +189,7 @@ telescoping_standardize <- function(
     create_location_sf(location_name, thorough = TRUE)
   all_names <- list()
   for(level in sort(unique(location_sf$ISO_A2_level))){
-      # tmp_location_sf <- dplyr::filter(location_sf, ISO_A2_level == level)
-      tmp_location_sf <- location_sf[location_sf[["ISO_A2_level"]] == level, ]
+    tmp_location_sf <- location_sf[location_sf[["ISO_A2_level"]] == level, ]
     counter <- 1
     tmp_location_sf$standardized_source <- as.character(NA)
     while(
@@ -213,10 +210,11 @@ telescoping_standardize <- function(
           tmp_location_sf$location_name[tmp_location_sf_idx]
         )
         standard_names <- standardize_name(
-          gsub('.*:', '', nonstandard_names),
+          location = gsub('.*:', '', nonstandard_names),
           scope = "",
           depth = max_jump_depth,
           dbname = dbname
+          ## metadata = metadata
         )
      } else {
         nonstandard_names <- unique(tmp_location_sf$location_name[

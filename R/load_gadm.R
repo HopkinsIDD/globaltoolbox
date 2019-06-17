@@ -2,9 +2,8 @@
 #' @title load_gadm
 #' @description Build database of locations from online GADM data repository
 #' @param countries The set of countries to load gadm information into the database for
-#' @param dbname The name of the database file (there is a default database maintained by the package)
-#' @return standardized database built from GADM data
-#' @import dplyr
+#' @param max_depth The maximum depth from the country to pull information for.
+#' @param dbname Name of the database to load into. Defaults to a standard location.
 #' @export
 load_gadm <- function(
   countries = NULL,
@@ -70,7 +69,7 @@ load_gadm <- function(
       descendent_id <- database_add_descendent(
         dbname = dbname,
         metadata = metadata_frame,
-        standardized_name = "",
+        standardized_parent_name = "",
         readable_descendent_name = country_data$ISO
       )
       for(alias_idx in
@@ -204,7 +203,7 @@ load_gadm <- function(
             descendent_id <- database_add_descendent(
               dbname = dbname,
               metadata = metadata_frame,
-              standardized_name = tmp_data$standardized_parent_name,
+              standardized_parent_name = tmp_data$standardized_parent_name,
               readable_descendent_name =
                 tmp_data[[paste('NAME', ISO_level, sep = '_')]]
             )
@@ -295,9 +294,9 @@ load_gadm <- function(
 
 #' @name standardize_gadm_lhs_time
 #' @title standardize_gadm_lhs_time
+#' @description Turn gadm start times into Date objects
 #' @param x Time to standardize.
 #' @return Standardized time.
-#' @export
 standardize_gadm_lhs_time <- function(x){
   if(x == 'Present'){
     return(lubridate::now())
@@ -324,9 +323,9 @@ standardize_gadm_lhs_time <- function(x){
 
 #' @name standardize_gadm_rhs_time
 #' @title standardize_gadm_rhs_time
+#' @description Turn gadm end times into Date objects
 #' @param x Time to standardize.
 #' @return Standardized time.
-#' @export
 standardize_gadm_rhs_time <- function(x){
   if(x == 'Present'){
     return(lubridate::now() + lubridate::years(1))
@@ -349,6 +348,18 @@ standardize_gadm_rhs_time <- function(x){
   return(NA)
 }
 
+#' @name load_sf
+#' @title load_sf
+#' @description Add locations and shapefiles to the database from a shapefile.
+#' @param sf_object The shapefile to add to the database as an sf object
+#' @param sf_object_origin Where you got the shapefile as a character
+#' @param name_column Column name of sf_object containing the name of each shapefile
+#' @param source A standardized location name containing this shapefile
+#' @param alias_columns Any column names of sf_object which contain alternative names for the location
+#' @param geometry_columns The column name of sf_object which contains the geometry
+#' @param match_threshold How similar two geomtries need to be to be considered identical.  This is a percentage of non-overlapping area.
+#' @param dbname Name of the database to load into. Defaults to a standard location.
+#' @export
 load_sf <- function(
   sf_object,
   sf_object_origin,
@@ -364,7 +375,7 @@ load_sf <- function(
 
   ## Find non overlapping regions by extent
 
-  
+
   if(!(source == '')){
     warning("This is not currently implemented")
   }
@@ -391,17 +402,23 @@ load_sf <- function(
       FROM
         location_hierarchy
       WHERE
-        descendent_id = {descendent_id} AND 
+        descendent_id = {descendent_id} AND
         depth > 0
       )"
 
   error_messages <- c('')
 
   sf_object$origin <- sf_object_origin
-  if('origin' %in% c(metadata_columns,name_column,alias_columns,geometry_columns)){
-    stop("origin is a reserved name, and cannot be a column name.  Please rename")
+  if(
+    'origin' %in%
+      c(metadata_columns, name_column, alias_columns, geometry_columns)
+  ){
+    stop(
+      "origin is a reserved name,",
+      "and cannot be a column name.  Please rename"
+    )
   }
-  metadata_columns <- c(metadata_columns,'origin')
+  metadata_columns <- c(metadata_columns, "origin")
 
   sources <- find_geometry_source(
     sf_object,
@@ -416,21 +433,21 @@ load_sf <- function(
 
     if(tmp_sources$exact_match){
       warning("This implementation is fragile")
-      
-                                        # try({
-                                        # descendent_id <- database_add_descendent(
-                                        # dbname = dbname,
-                                        # metadata = metadata_frame[idx,],
-                                        # standardized_name = tmp_sources$source,
-                                        # readable_descendent_name = sf_object[[name_column]][idx]
-                                        # )
-                                        # 
-                                        # database_merge_locations(
-                                        # descendent_id,
-                                        # get_database_id_from_name(sources$source[idx]),
-                                        # dbname=dbname
-                                        # )})
-                                        #     } else {
+
+      ## try({
+      ## descendent_id <- database_add_descendent(
+      ## dbname = dbname,
+      ## metadata = metadata_frame[idx,],
+      ## standardized_parent_name = tmp_sources$source,
+      ## readable_descendent_name = sf_object[[name_column]][idx]
+      ## )
+      ## 
+      ## database_merge_locations(
+      ## descendent_id,
+      ## get_database_id_from_name(sources$source[idx]),
+      ## dbname=dbname
+      ## )})
+    } else {
 
       ## create standardized name
       warning("Not using check_aliases because it is currently too sensitive")
@@ -444,7 +461,7 @@ load_sf <- function(
       descendent_id <- database_add_descendent(
         dbname = dbname,
         metadata = metadata_frame[idx,],
-        standardized_name = tmp_sources$source,
+        standardized_parent_name = tmp_sources$source,
         readable_descendent_name = sf_object[[name_column]][idx]
       )
       potential_children <- get_location_geometry(source=tmp_sources$source)
@@ -497,11 +514,20 @@ load_sf <- function(
   }
 }
 
+#' @name find_geometry_source
+#' @title find_geometry_source
+#' @description Get the smallest geometry already in the database which contains sf_object
+#' @param sf_object An sf object whose geometry should be contained
+#' @param source A standardized location name representing a location known to contain the object
+#' @param match_threshold How similar two geomtries need to be to be considered identical.  This is a percentage of non-overlapping area.
+#' @param dbname Name of the database to load into. Defaults to a standard location.
+#' @export
 find_geometry_source <- function(
   sf_object,
   source = "",
-  match_threshold = 1e-6
-  ){
+  match_threshold = 1e-6,
+  dbname = default_dtabase_filename()
+){
 
   error_messages <- c('')
 
@@ -521,7 +547,8 @@ find_geometry_source <- function(
       all_geometries <- get_location_geometry(
         source = source,
         depth = 1,
-        strict_scope = TRUE
+        strict_scope = TRUE,
+        dbname = dbname
       )
 
       if(nrow(all_geometries) == 0){

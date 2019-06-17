@@ -4,28 +4,27 @@
 #' @title database_add_descendent
 #' @description Add a new location as a descendent of another location and update the location hierarchy.
 #' @param redable_descendent_name The human readable name of the location to add.
-#' @param standardized_name The standardized name of the parent of the location to add.
+#' @param standardized_parent_name The standardized name of the parent of the location to add.
+#' @param metadata Any data the user wants associated with the location.  Should be in the form of a data.frame
 #' @param dbname The name of the database.  Defaults to the database associated with the package
 #' @export
 database_add_descendent <- function(
-  standardized_name,
+  standardized_parent_name,
   readable_descendent_name,
   metadata,
   dbname=default_database_filename()
 ){
-
-  # warning("Not checking for aliases as name matching is too sensitive")
   standardized_descendent_name <- create_standardized_name(
     name = readable_descendent_name,
-    parent = standardized_name,
+    parent = standardized_parent_name,
     check_aliases = FALSE,
     dbname = dbname
   )
 
   con <- DBI::dbConnect(drv = RSQLite::SQLite(), dbname)
-  if(!is.null(standardized_name)){
+  if(!is.null(standardized_parent_name)){
     parent_id <- get_database_id_from_name(
-      name = standardized_name,
+      name = standardized_parent_name,
       dbname = dbname
     )
   }
@@ -54,7 +53,7 @@ database_add_descendent <- function(
     alias = standardized_descendent_name,
     dbname = dbname
   )
-  if(!is.null(standardized_name)){
+  if(!is.null(standardized_parent_name)){
     ## Add all ancestors of parent as ancestors here
     query <- "INSERT INTO location_hierarchy
           (parent_id,descendent_id, depth)
@@ -80,7 +79,6 @@ database_add_descendent <- function(
 #' @param standard Whether or not to check aliases.
 #' @param depth How deep under the source should the search extent. (Not yet implemented)
 #' @param dbname The name of the database.  Defaults to the database associated with the package
-#' @export
 database_standardize_name <- function(
   name,
   source="",

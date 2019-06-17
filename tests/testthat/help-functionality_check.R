@@ -99,24 +99,24 @@ create_hierarchy <- function(){
 create_test_database <- function(){
   attempt_fun(
     FUN = database_add_descendent,
-    NAME = "add_hierarchy",
-    standardized_name = "",
+    NAME = "add_descendent",
+    standardized_parent_name = "",
     readable_descendent_name = "tst",
     metadata = list("test" = 1),
     dbname = tdbn
   )
   attempt_fun(
     FUN = database_add_descendent,
-    NAME = "add_hierarchy",
-    standardized_name = "",
+    NAME = "add_descendent",
+    standardized_parent_name = "",
     readable_descendent_name = "tst2",
     metadata = list("test" = 2),
     dbname = tdbn
   )
   attempt_fun(
     FUN = database_add_descendent,
-    NAME = "add_hierarchy",
-    standardized_name = "::tst",
+    NAME = "add_descendent",
+    standardized_parent_name = "::tst",
     readable_descendent_name = "tst",
     metadata = list("test" = 3),
     dbname = tdbn

@@ -1,4 +1,9 @@
 #' @include string_manipulation.R
+#' @name default_database_filename
+#' @title default_database_filename
+#' @description Return the filename of the default database
+#' @return A filename as a character
+#' @export
 default_database_filename <- function(){
   system.file("extdata", "globaltoolbox.sqlite", package = "globaltoolbox")
 }
@@ -166,7 +171,8 @@ create_database <- function(dbname = default_database_filename()){
     loc_id <- database_add_location("", "", NULL, dbname)
     database_add_hierarchy(loc_id, loc_id, 0, dbname = dbname)
     database_add_location_alias(loc_id, "", dbname = dbname)
-  },silent=T)
+  },
+  silent = T)
   return()
 }
 
@@ -177,14 +183,12 @@ create_database <- function(dbname = default_database_filename()){
 #' @description Wrapper for the sql code to create a location.  This function should not be called directly in most circumstances.  See database_add_descendent and database_add_alias instead.
 #' @param name location name to add
 #' @param readable_name common readable name for the location
-#' @param metadata Additional data that may be useful to identify the location name
+#' @param metadata Additional data that may be useful to identify the location name.
 #' @param dbname database name to put location information.
-#' @return standardized database code which can be used to identify other data
-#' @export
 database_add_location <- function(
   name,
   readable_name,
-  metadata=NULL,
+  metadata = NULL,
   dbname = default_database_filename()
 ){
   if (is.numeric(name)){
@@ -218,7 +222,10 @@ database_add_location <- function(
 #' @name database_add_location_hierarchy
 #' @title database_add_location_hierarchy
 #' @description Wrapper for the sql code to create a relationship in the location hierarchy.  This function should not be called directly in most circumstances.  See database_add_descendent and database_add_alias instead.
-#' @export
+#' @param parent_id The id of the parent in the relationship.  The id is with respect to the locations table in the database
+#' @param descendent_id The id of the descendent in the relationship.  The id is with respect to the locations table in the database
+#' @param depth The distance between the parent and the descendent along the tree.  Should be one more than the number of intermediate locations between the parent and child.
+#' @param dbname database name to put location information.
 database_add_hierarchy <- function(
   parent_id,
   descendent_id,
@@ -244,7 +251,11 @@ database_add_hierarchy <- function(
 #' @name database_add_location_geometry
 #' @title database_add_location_geometry
 #' @description Wrapper for the sql code to create a geometry associated with a location at a time period.
-#' @export
+#' @param location_id The id of the location to add a geometry for.  Should be with respect to the locations table.
+#' @param time_left The first time this geometry is valid for.  Should be a Date object.
+#' @param time_right The last time this geometry is valid for.  Should be a Date object.
+#' @param geometry The geometry to add to the database for the given time period.  Should be an sfc object.
+#' @param dbname database name to put location information.
 database_add_location_geometry <- function(
   location_id,
   time_left,
@@ -274,7 +285,9 @@ database_add_location_geometry <- function(
 #' @name database_add_location_alias
 #' @title database_add_location_alias
 #' @description Wrapper for the sql code to create an alias for a location.
-#' @export
+#' @param location_id The id of the location to add an alias for.  Should be with respect to the locations table.
+#' @param alias The alias to add.
+#' @param dbname database name to put location information.
 database_add_location_alias <- function(
   location_id,
   alias,
@@ -347,10 +360,10 @@ database_merge_locations <- function(
   con <- DBI::dbConnect(drv = RSQLite::SQLite(), dbname)
 
   if(class(from) == 'character'){
-    from <- get_database_id_from_name(from,dbname)
+    from <- get_database_id_from_name(from, dbname)
   }
   if(class(to) == 'character'){
-    to <- get_database_id_from_name(to,dbname)
+    to <- get_database_id_from_name(to, dbname)
   }
   add_query <- "UPDATE OR IGNORE {`table_name`}
     SET
