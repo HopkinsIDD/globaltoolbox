@@ -70,17 +70,18 @@ who_disease_incidence_year <- function(disease=c("CRS","Diphtheria","JapEnc","Me
                                        save_dir=NULL, long_data=TRUE) {
   
   disease_list <- c("CRS","Diphtheria","JapEnc","Measles","Mumps","Ntetanus","Pertussis","Polio","Rubella","Ttetanus","Yfever")
+  # bypass any capitalization issues
+  disease <- disease_list[match(tolower(disease), tolower(disease_list))]
+  
   if (is.na(disease)) {
     return("Please specify a disease")
-  } else if (!(disease %in% c("measles", "rubella"))) {
-    return("This disease is not currently available or part of this function.")
+  } else if (!(disease %in% disease_list)) {
+    return(paste0(disease, " is not currently available or part of this function."))
   } else if (length(disease)>1) {
     return("Please specify one disease at a time.")
   }
   
-  # bypass any capitalization issues
-  disease <- disease_list[match(tolower(disease), tolower(disease_list))]
-  
+
   # URL
   url_data <- "https://www.who.int/immunization/monitoring_surveillance/data/incidence_series.xls"
   

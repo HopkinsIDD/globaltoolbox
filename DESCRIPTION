@@ -42,6 +42,7 @@ Collate:
     'get_country.R'
     'get_location_data.R'
     'get_region.R'
+    'get_who_disease_incidence.R'
     'load_gadm.R'
     'standardize_name.R'
     'telescope.R'
