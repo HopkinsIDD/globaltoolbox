@@ -1,3 +1,5 @@
+#' @include string_manipulation.R
+
 #' @name load_gadm
 #' @title load_gadm
 #' @description Build database of locations from online GADM data repository
@@ -347,6 +349,88 @@ standardize_gadm_rhs_time <- function(x){
   }
   return(NA)
 }
+
+
+
+#' @name load_hierarchical_sf
+#' @title load_hierarchical_sf
+#' @description Build database of locations from an sf object with built in hierarchy
+#' @param filename File to pull locations from
+#' @param time_left First time the shapefiles are valid from
+#' @param time_right Last time the shapefiles are valid until
+#' @param dbname Name of the database to load into. Defaults to a standard location.
+#' @export
+load_hierarchical_sf <- function(
+  filename,
+  time_left,
+  time_right,
+  hierarchy_column_names,
+  source_name,
+  dbname = default_database_filename()
+){
+  error_messages <- c('')
+  shp_files <- sf::st_read(filename)
+  for (level in 1:length(hierarchy_column_names)){
+    names <- unique(
+      tibble::as_tibble(shp_files)[, hierarchy_column_names[1:level] ]
+    )
+    last_level <- level - 1
+    shp_name <- names[[level]]
+    shp_name <- standardize_location_strings(shp_name)
+    missing_idx <- (shp_name == 'administrativeunitnotavailable') |  (shp_name == '')
+    names <- names[!missing_idx,]
+    shp_name <- shp_name[!missing_idx]
+    shp_source <- rep("",nrow(names))
+    if (last_level > 0){
+      shp_source <- names[, 1:last_level]
+      shp_source <- apply(shp_source, 1, paste, collapse = "::")
+      shp_source <- telescoping_standardize(shp_source, dbname = dbname)
+    }
+    for (i in 1:nrow(names)){
+      cat(paste0("\rlevel ", level, ": ", i, "/", nrow(names)))
+      tryCatch({
+        id = database_add_descendent(
+          standardized_name = shp_source[[i]],
+          readable_descendent_name = shp_name[[i]],
+          metadata = list(
+            import_type = "load_hierarchical_sf",
+            level = level,
+            source_name = source_name
+          ),
+          dbname = dbname
+        )
+      },
+      error = function(e){
+        error_messages <<- c(
+          error_messages,
+          paste(
+            shp_source[[i]],
+            "had an error entering",
+            shp_name[[i]],
+            "located at",
+            i,
+            "/",
+            nrow(names),
+            "with error",
+            e$message
+          )
+        )
+      })
+      database_add_location_geometry(
+        location_id = location_id,
+        time_left = time_left,
+        time_right = time_right,
+        geometry = geometry,
+        dbname = dbname
+      )
+    }
+    cat("\r")
+  }
+  for(msg in error_messages){
+    message(msg)
+  }
+}
+
 
 #' @name load_sf
 #' @title load_sf
