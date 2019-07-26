@@ -71,6 +71,8 @@ database_add_descendent <- function(
   return(descendent_id)
 }
 
+
+
 #' @name database_standardize_name
 #' @title database_standardize_name
 #' @description Get the id of a location by looking up it's name.

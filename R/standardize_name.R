@@ -48,7 +48,6 @@ standardize_name <- function(
   db_scoped <- get_all_aliases(
     source = scope,
     dbname = dbname,
-    aliases = TRUE,
     depth = depth,
     strict_scope = strict_scope
   )
