@@ -418,6 +418,7 @@ load_hierarchical_sf <- function(
         )
       })
       tryCatch({
+        # stop("Skiping geometry for now")
         geometry <- sf::st_union(shp_files[all_string_names == unique_string_names[[i]],])
         database_add_location_geometry(
           location_id = location_id,
