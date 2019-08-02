@@ -372,9 +372,9 @@ load_hierarchical_sf <- function(
   shp_files <- sf::st_read(filename)
   for (level in 1:length(hierarchy_column_names)){
     all_names <- tibble::as_tibble(shp_files)[, hierarchy_column_names[1:level] ]
-    all_string_names <- apply(all_names, 1, paste,sep='::')
+    all_string_names <- apply(all_names, 1, paste,collapse='::')
     unique_names <- unique(all_names)
-    unique_string_names <- apply(unique_names, 1, paste,sep='::')
+    unique_string_names <- apply(unique_names, 1, paste,collapse='::')
     last_level <- level - 1
     shp_name <- unique_names[[level]]
     shp_name <- standardize_location_strings(shp_name)
@@ -389,6 +389,11 @@ load_hierarchical_sf <- function(
     }
     for (i in 1:nrow(unique_names)){
       cat(paste0("\rlevel ", level, ": ", i, "/", nrow(unique_names)))
+      id <- NA
+      try({
+        id <- globaltoolbox:::get_database_id_from_name(paste(shp_source[[i]],shp_name[[i]],sep='::'),dbname=dbname)
+      },
+      silent = TRUE)
       tryCatch({
         id = database_add_descendent(
           standardized_parent_name = shp_source[[i]],
@@ -402,48 +407,51 @@ load_hierarchical_sf <- function(
         )
       },
       error = function(e){
-        error_messages <<- c(
-          error_messages,
-          paste(
-            shp_source[[i]],
-            "had an error entering",
-            shp_name[[i]],
-            "located at",
-            i,
-            "/",
-            nrow(unique_names),
-            "with error",
-            e$message
+        if(is.na(id) || (!grepl('UNIQUE constraint failed',e$message))){
+          error_messages <<- c(
+            error_messages,
+            paste(
+              shp_source[[i]],
+              "had an error entering",
+              shp_name[[i]],
+              "located at",
+              i,
+              "/",
+              nrow(unique_names),
+              "with error",
+              e$message
+            )
           )
-        )
+        }
       })
-      tryCatch({
-        # stop("Skiping geometry for now")
-        geometry <- sf::st_union(shp_files[all_string_names == unique_string_names[[i]],])
-        database_add_location_geometry(
-          location_id = location_id,
-          time_left = time_left,
-          time_right = time_right,
-          geometry = geometry,
-          dbname = dbname
-        )
-      },
-      error = function(e){
-        error_messages <<- c(
-          error_messages,
-          paste(
-            shp_source[[i]],
-            "had an error entering geometry for",
-            shp_name[[i]],
-            "located at",
-            i,
-            "/",
-            nrow(unique_names),
-            "with error",
-            e$message
+      if(level == length(hierarchy_column_names)){
+        tryCatch({
+          geometry <- shp_files[all_string_names == unique_string_names[[i]],]$geometry
+          database_add_location_geometry(
+            location_id = id,
+            time_left = time_left,
+            time_right = time_right,
+            geometry = geometry,
+            dbname = dbname
           )
-        )
-      })
+        },
+        error = function(e){
+          error_messages <<- c(
+            error_messages,
+            paste(
+              shp_source[[i]],
+              "had an error entering geometry for",
+              shp_name[[i]],
+              "located at",
+              i,
+              "/",
+              nrow(unique_names),
+              "with error",
+              e$message
+            )
+          )
+        })
+      }
     }
     cat("\n")
     for(msg in error_messages){
