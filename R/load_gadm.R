@@ -377,12 +377,12 @@ load_hierarchical_sf <- function(
   for (level in 1:length(hierarchy_column_names)){
     alias_columns <- alias_column_names[[level]]
     all_names <- tibble::as_tibble(shp_files)
-    all_aliases <- all_names[, alias_columns]
+    all_aliases <- all_names[,c(hierarchy_column_names[1:level], alias_columns)]
     all_names <- all_names[, hierarchy_column_names[1:level] ]
     all_string_names <- apply(all_names, 1, paste, collapse = '::')
     unique_names <- unique(all_names)
     if(nrow(unique(all_aliases)) == nrow(unique_names)){
-      unique_aliases <- unique(all_aliases)
+      unique_aliases <- unique(all_aliases)[, alias_columns]
     } else {
       stop("This code is not yet written")
       ## This code should loop over names and combine the associated aliases
