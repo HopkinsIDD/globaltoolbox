@@ -358,6 +358,9 @@ standardize_gadm_rhs_time <- function(x){
 #' @param filename File to pull locations from
 #' @param time_left First time the shapefiles are valid from
 #' @param time_right Last time the shapefiles are valid until
+#' @param hierarchy_column_names character vector containing the names of columns which have the location names (order determines hierarchy).
+#' @param alias_column_names list of character vectors containing the names of columns which contain aliases for each level (in order by hierarchy).
+#' @param source_name An identifier for this source
 #' @param dbname Name of the database to load into. Defaults to a standard location.
 #' @export
 load_hierarchical_sf <- function(
@@ -365,23 +368,35 @@ load_hierarchical_sf <- function(
   time_left,
   time_right,
   hierarchy_column_names,
+  alias_column_names,
   source_name,
   dbname = default_database_filename()
 ){
   error_messages <- c('')
   shp_files <- sf::st_read(filename)
   for (level in 1:length(hierarchy_column_names)){
-    all_names <- tibble::as_tibble(shp_files)[, hierarchy_column_names[1:level] ]
-    all_string_names <- apply(all_names, 1, paste,collapse='::')
+    alias_columns <- alias_column_names[[level]]
+    all_names <- tibble::as_tibble(shp_files)
+    all_aliases <- all_names[, alias_columns]
+    all_names <- all_names[, hierarchy_column_names[1:level] ]
+    all_string_names <- apply(all_names, 1, paste, collapse = '::')
     unique_names <- unique(all_names)
-    unique_string_names <- apply(unique_names, 1, paste,collapse='::')
+    if(nrow(unique(all_aliases)) == nrow(unique_names)){
+      unique_aliases <- unique(all_aliases)
+    } else {
+      stop("This code is not yet written")
+      ## This code should loop over names and combine the associated aliases
+    }
+    unique_string_names <- apply(unique_names, 1, paste, collapse = '::')
     last_level <- level - 1
     shp_name <- unique_names[[level]]
     shp_name <- standardize_location_strings(shp_name)
-    missing_idx <- (shp_name == 'administrativeunitnotavailable') |  (shp_name == '')
-    unique_names <- unique_names[!missing_idx,]
+    missing_idx <- (shp_name == 'administrativeunitnotavailable') |
+        (shp_name == '')
+    unique_names <- unique_names[!missing_idx, ]
+    unique_aliases <- unique_aliases[!missing_idx, ]
     shp_name <- shp_name[!missing_idx]
-    shp_source <- rep("",nrow(unique_names))
+    shp_source <- rep("", nrow(unique_names))
     if (last_level > 0){
       shp_source <- unique_names[, 1:last_level]
       shp_source <- apply(shp_source, 1, paste, collapse = "::")
@@ -391,11 +406,37 @@ load_hierarchical_sf <- function(
       cat(paste0("\rlevel ", level, ": ", i, "/", nrow(unique_names)))
       id <- NA
       try({
-        id <- globaltoolbox:::get_database_id_from_name(paste(shp_source[[i]],shp_name[[i]],sep='::'),dbname=dbname)
+        try({
+          tmp_name <- database_standardize_name(shp_name[[i]], source = shp_source[[i]], dbname = dbname)
+        },
+        silent = T
+        )
+        for(alias in unique_aliases[i, ]){
+          try({
+            tmp_tmp_name <- database_standardize_name(shp_name[[i]], source = alias, dbname = dbname)
+          },
+          silent = T
+          )
+          if(!is.na(tmp_tmp_name)){
+            ## if no tmp_name, set it now
+            if(is.na(tmp_name)){
+              tmp_name <- tmp_tmp_name
+            } else if(tmp_name != tmp_tmp_name){
+              stop(paste(paste(shp_source[[i]], shp_name[[i]], sep = "::"),"matches two locations"))
+            }
+          }
+        }
+        if(is.na(tmp_name)){
+          tmp_name <- paste(shp_source[[i]], shp_name[[i]], sep = "::")
+        }
+        id <- globaltoolbox:::get_database_id_from_name(
+          tmp_name,
+          dbname = dbname
+        )
       },
       silent = TRUE)
       tryCatch({
-        id = database_add_descendent(
+        id <- database_add_descendent(
           standardized_parent_name = shp_source[[i]],
           readable_descendent_name = shp_name[[i]],
           metadata = list(
@@ -407,7 +448,7 @@ load_hierarchical_sf <- function(
         )
       },
       error = function(e){
-        if(is.na(id) || (!grepl('UNIQUE constraint failed',e$message))){
+        if(is.na(id) || (!grepl('UNIQUE constraint failed', e$message))){
           error_messages <<- c(
             error_messages,
             paste(
@@ -424,9 +465,36 @@ load_hierarchical_sf <- function(
           )
         }
       })
+      for(alias in unique_aliases[i, ]){
+        tryCatch({
+          database_add_location_alias(
+            dbname = dbname,
+            location_id = id,
+            alias = alias
+          )
+        },
+        error = function(e){
+          if(!is.na(id) && (!grepl('UNIQUE constraint failed', e$message))){
+            error_messages <<- c(
+              error_messages,
+              paste(
+                shp_source[[i]],
+                "had an error entering an alias",
+                alias,
+                "for",
+                paste0(shp_source[[i]], "::", shp_name[[i]]),
+                "with error",
+                e$message
+              )
+            )
+          }
+        })
+      }
       if(level == length(hierarchy_column_names)){
         tryCatch({
-          geometry <- shp_files[all_string_names == unique_string_names[[i]],]$geometry
+            geometry <- shp_files[
+                all_string_names == unique_string_names[[i]],
+                ]$geometry
           database_add_location_geometry(
             location_id = id,
             time_left = time_left,
@@ -436,20 +504,22 @@ load_hierarchical_sf <- function(
           )
         },
         error = function(e){
-          error_messages <<- c(
-            error_messages,
-            paste(
-              shp_source[[i]],
-              "had an error entering geometry for",
-              shp_name[[i]],
-              "located at",
-              i,
-              "/",
-              nrow(unique_names),
-              "with error",
-              e$message
+          if(!is.na(id)){
+            error_messages <<- c(
+              error_messages,
+              paste(
+                shp_source[[i]],
+                "had an error entering geometry for",
+                shp_name[[i]],
+                "located at",
+                i,
+                "/",
+                nrow(unique_names),
+                "with error",
+                e$message
+              )
             )
-          )
+          }
         })
       }
     }
@@ -543,7 +613,7 @@ load_sf <- function(
   metadata_frame <- tibble::as_tibble(sf_object)[, metadata_columns]
   for(idx in 1:nrow(sf_object)){
     print(paste(idx, " / ", nrow(sf_object)))
-    tmp_sources <- sources[idx,]
+    tmp_sources <- sources[idx, ]
 
     if(tmp_sources$exact_match){
       warning("This implementation is fragile")
