@@ -193,3 +193,45 @@ test_that("Retrieve ID", {
     )
   )
 })
+
+test_that("Merge Locations", {
+  initialize_database()
+  create_locations()
+  expect_error({
+    database_merge_locations(
+      "::tst",
+      "::tst2",
+      dbname = tdbn
+    )
+  },
+    NA
+  )
+
+  expect_equal({
+      is.na(get_database_id_from_name("::tst2", dbname = tdbn))
+  },
+  FALSE)
+
+  expect_equal({
+      is.na(get_database_id_from_name("::tst", dbname = tdbn))
+  },
+  TRUE)
+
+  expect_equal({
+      initialize_database()
+      create_locations()
+      tst_aliases <- get_all_aliases("::tst", dbname = tdbn)
+      tst2_aliases <- get_all_aliases("::tst2", dbname = tdbn)
+      database_merge_locations(
+          "::tst",
+          "::tst2",
+          dbname = tdbn
+      )
+      new_tst2_aliases <- get_all_aliases("::tst", dbname = tdbn)
+      isTRUE(all.equal(
+          sort(unique(c(tst_aliases$alias, tst2_aliases$alias))),
+          sort(unique(new_tst2_aliases))
+      ))
+  },
+  TRUE)
+})
