@@ -39,6 +39,7 @@ create_database <- function(dbname = default_database_filename()){
   ## Create Tables
 
   con <- DBI::dbConnect(drv = RSQLite::SQLite(), dbname)
+  tryCatch({
 
   ## nolint start
   ## The first table holds the locations and any metadata
@@ -161,6 +162,11 @@ create_database <- function(dbname = default_database_filename()){
        );"
     )
   )
+  },
+  error = function(e){
+    RSQLite::dbDisconnect(con)
+    stop(e$message)
+  })
   ## Populate with a root
   RSQLite::dbDisconnect(con)
   try({
@@ -187,30 +193,31 @@ database_add_location <- function(
   metadata = NULL,
   dbname = default_database_filename()
 ){
+  rc <- as.integer(NA)
   if (is.numeric(name)){
     stop("This should not happen")
   }
   name <- standardize_location_strings(name)
-  con <- DBI::dbConnect(drv = RSQLite::SQLite(), dbname)
   metadata <- as.character(jsonlite::toJSON(metadata))
   query <- "INSERT INTO locations
       (name,readable_name,metadata)
     VALUES
       ({name},{readable_name},{metadata})"
 
+  con <- DBI::dbConnect(drv = RSQLite::SQLite(), dbname)
   tryCatch({
     DBI::dbClearResult(DBI::dbSendQuery(con, glue::glue_sql(.con = con, query)))
+    rc <- DBI::dbGetQuery(
+      con,
+      "SELECT DISTINCT last_insert_rowid() FROM locations"
+    )
   },
   error = function(e){
     RSQLite::dbDisconnect(con)
     stop(e$message)
   })
-  rc <- DBI::dbGetQuery(
-    con,
-    "SELECT DISTINCT last_insert_rowid() FROM locations"
-  )
   RSQLite::dbDisconnect(con)
-  return(return(rc))
+  return(rc)
 }
 
 
@@ -227,10 +234,10 @@ database_add_hierarchy <- function(
   descendent_id,
   depth, dbname = default_database_filename()
 ){
-  con <- DBI::dbConnect(drv = RSQLite::SQLite(), dbname)
   query <- "INSERT INTO location_hierarchy
       (parent_id, descendent_id,depth)
     VALUES ({parent_id},{descendent_id},{depth})"
+  con <- DBI::dbConnect(drv = RSQLite::SQLite(), dbname)
   tryCatch({
     DBI::dbClearResult(DBI::dbSendQuery(con, glue::glue_sql(.con = con, query)))
   },
@@ -259,12 +266,12 @@ database_add_location_geometry <- function(
   geometry,
   dbname = default_database_filename()
 ){
-  con <- DBI::dbConnect(drv = RSQLite::SQLite(), dbname)
   geometry <- geojsonsf::sfc_geojson(geometry)
   query <- "INSERT INTO location_geometries
       (location_id, time_left, time_right, geometry)
     VALUES
       ({location_id},{time_left},{time_right},{geometry})"
+  con <- DBI::dbConnect(drv = RSQLite::SQLite(), dbname)
   tryCatch({
     DBI::dbClearResult(DBI::dbSendQuery(con, glue::glue_sql(.con = con, query)))
   },
@@ -290,11 +297,11 @@ database_add_location_alias <- function(
   dbname = default_database_filename()
 ){
   alias <- standardize_location_strings(alias)
-  con <- DBI::dbConnect(drv = RSQLite::SQLite(), dbname)
   query <- "INSERT INTO location_aliases
       (location_id, alias)
     VALUES
       ({location_id},{alias})"
+  con <- DBI::dbConnect(drv = RSQLite::SQLite(), dbname)
   tryCatch({
     DBI::dbClearResult(DBI::dbSendQuery(con, glue::glue_sql(.con = con, query)))
   },
@@ -321,11 +328,11 @@ get_database_id_from_name <- function(
   if (length(name) > 1){
     return(sapply(name, get_database_id_from_name, dbname = dbname))
   }
-  con <- DBI::dbConnect(drv = RSQLite::SQLite(), dbname)
   query <- "SELECT
     id
   FROM locations
     WHERE name is {name}"
+  con <- DBI::dbConnect(drv = RSQLite::SQLite(), dbname)
   tryCatch({
     rc <- DBI::dbGetQuery(con, glue::glue_sql(.con = con, query))
   },
@@ -333,13 +340,15 @@ get_database_id_from_name <- function(
     RSQLite::dbDisconnect(con)
     stop(e$message)
   })
-
   RSQLite::dbDisconnect(con)
+
   if (length(rc$id) != 1){
     stop(paste("Ambiguous location", name, "has", nrow(rc), "location_ids"))
   }
   return(rc$id)
 }
+
+
 
 #' @name database_merge_locations
 #' @title database_merge_locations
@@ -395,4 +404,6 @@ database_merge_locations <- function(
       stop(e$message)
     })
   }
+  RSQLite::dbDisconnect(con)
+  return()
 }
