@@ -367,20 +367,7 @@ standardize_name_local <- function(
   ...,
   type = NULL
 ){
-  ## JK: I think this shouldn't be part of the local version
-  # try({
-  #   rc <- sapply(
-  #     location,
-  #     database_standardize_name,
-  #     source = scope,
-  #     dbname = dbname
-  #   )
-  #   if(length(rc) == length(location)){
-  #     return(rc)
-  #   }
-  # },
-  # silent = TRUE)
-  ## limit database and alias_database to scope and metadata
+
   db_scoped <- metadata
   if (!is.null(scope)){
     db_scoped <- dplyr::filter(

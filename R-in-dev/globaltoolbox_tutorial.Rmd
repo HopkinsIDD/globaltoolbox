@@ -1,0 +1,54 @@
+---
+title: "Tutorial: Using globaltoolbox to standardize locations and incorportate global data"
+author: "Shaun Truelove and Joshua Kaminski"
+date: "August 12, 2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## The globaltoolbox R package
+    
+The `globaltoolbox` R package was developed to help with large-scale analysis projects that include numerous, often unstandarized location names. This package is particularly targeted for use with standardizing location names at various administrative levels from unstandardized sources like free-form surveys or large-scale data aggregation projects that involve multiple sources.
+
+This tutorial is meant to demonstrate some of the applications and workflows that `globaltoolbox` for which is well-suited.
+
+To get started, let's install the package and some others needed for other data manipulation.
+```{r install_packages}
+install.packages("globaltoolbox")
+install.packages("dplyr")
+install.packages("readr")
+install.packages("tidyr")
+
+```
+
+A demonstration dataset called `globaltbx_demo` is included in the package for demonstration and testing.
+
+```{r demo_data}
+data(globaltbx_demo)
+
+head(globaltbx_demo)
+
+```
+
+
+
+```{r}
+
+country_aliases.csv <- system.file(
+  "extdata",
+  "country_aliases.csv",
+  package = "globaltoolbox"
+)
+country_aliases <- utils::read.csv(country_aliases.csv, stringsAsFactors = FALSE)
+countries <- country_aliases[,1]
+gadm_data <- load_gadm(countries = countries, max_depth = Inf, dbname = default_database_filename())
+
+```
+
+
+
+
+

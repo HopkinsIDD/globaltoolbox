@@ -5,8 +5,9 @@
 #' @param string string location name to standardize.
 #' @return standardized string of the location names.
 #' @export
-ranked_encodings <- c('UTF-8', 'LATIN1')
 standardize_string <- function(string){
+  
+  ranked_encodings <- c('UTF-8', 'LATIN1') # Encodings to try
   string <- as.character(string)
   string <- strsplit(string, '|', fixed = TRUE)
   string <- lapply(string, function(x){
@@ -46,6 +47,9 @@ standardize_string <- function(string){
   string[sapply(string, length) == 0] <- ''
   return(string)
 }
+
+
+
 
 #' @name standardize_location_strings
 #' @title standardize_location_strings
