@@ -544,32 +544,24 @@ load_gadm <- function(
     package = "globaltoolbox"
   )
   country_aliases <- utils::read.csv(country_aliases.csv)
-  
-  # If no countries were specified, return an error message
-  if (is.null(countries)){
-    return("Error: Please include at least 1 country")
-    
-    # If specific countries were listed, only download those
-  } else if (countries!="all" & !is.null(countries)){
-    
-    # Check for matches to ISO codes and country names
-    matches1_ <- match(countries, country_aliases[, 1])
-    matches2_ <- match(countries, country_aliases[, 2])
-    
-    # Identify those unmatched
-    unmatched_ <- which(is.na(matches1_) & is.na(matches2_))
-    if (lenghth(unmatched_)>0){
-      return(paste0("Error: No countries matching [", paste(countries[unmatched_], collapse = ", "), 
+
+  if(isTRUE(is.null(countries))){
+    stop("Please include at least one country")
+  } else if(countries == "all"){
+    ## No need to do anything here
+  } else {
+    unmatched_countries <- countries[!(countries %in% c(as.character(country_aliases[,1]),as.character(country_aliases[,2])))]
+    if(length(unmatched_countries) > 0){
+      stop(paste0("Error: No countries matching [", paste(unmatched_countries, collapse = ", "), 
                     "] could be identified. Please check spelling or re-specify."))
     }
+    country_aliases <- country_aliases[
+      (country_aliases[, 1] == countries ) |
+        (country_aliases[, 2] == countries ),
+    ]
     
-    matched_ <- unique(c(matches1_, matches2_))
-    
-    country_aliases <- country_aliases[match(countries, country_aliases[, 1]) |
-                                         (country_aliases[, 2] == countries ),]
-    
-  } 
-  
+  }
+
   countries <- unique(country_aliases$country_code)
   
   error_messages <- c('')
