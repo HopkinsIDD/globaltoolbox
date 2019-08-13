@@ -13,8 +13,6 @@ default_database_filename <- function(){
 #' @name reset_database
 #' @title reset_database
 #' @description Setup the database for holding the location tree and shapefiles.
-#'   Requires postgres database already set up.  For instructions on how to set
-#'   up a postgres database, see https://www.r-bloggers.com/getting-started-with-postgresql-in-r
 #' @param dbname The name of the database to connect to
 #' @export
 reset_database <- function(dbname = default_database_filename()){
@@ -31,8 +29,6 @@ reset_database <- function(dbname = default_database_filename()){
 #' @name create_database
 #' @title create_database
 #' @description Setup the database for holding the location tree and shapefiles.
-#'   Requires postgres database already set up.  For instructions on how to set
-#'   up a postgres database, see https://www.r-bloggers.com/getting-started-with-postgresql-in-r
 #' @param dbname The name of the database to connect to
 #' @param ... Other parameters for RPostgreSQL::dbConnect
 #' @export
