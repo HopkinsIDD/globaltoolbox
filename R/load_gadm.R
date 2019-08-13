@@ -76,11 +76,14 @@ load_hierarchical_sf <- function(
   hierarchy_column_names,
   alias_column_names,
   source_name,
+  max_depth = NA,
+  log_file = as.character(NA),
   dbname = default_database_filename()
 ){
   error_messages <- c('')
   shp_files <- sf::st_read(filename)
-  for (level in 1:length(hierarchy_column_names)){
+  n_levels = min(max_depth,length(hierarchy_column_names),na.rm=TRUE)
+  for (level in 1:n_levels){
     alias_columns <- alias_column_names[[level]]
     all_names <- tibble::as_tibble(shp_files)
     all_aliases <- all_names[,c(hierarchy_column_names[1:level], alias_columns)]
@@ -97,7 +100,8 @@ load_hierarchical_sf <- function(
     last_level <- level - 1
     shp_name <- unique_names[[level]]
     shp_name <- standardize_location_strings(shp_name)
-    missing_idx <- (shp_name == 'administrativeunitnotavailable') |
+    missing_idx <- is.na(shp_name) |
+        (shp_name == 'administrativeunitnotavailable') |
         (shp_name == '')
     unique_names <- unique_names[!missing_idx, ]
     unique_aliases <- unique_aliases[!missing_idx, ]
@@ -111,36 +115,41 @@ load_hierarchical_sf <- function(
     for (i in 1:nrow(unique_names)){
       cat(paste0("\rlevel ", level, ": ", i, "/", nrow(unique_names)))
       id <- NA
+      tmp_name <- NA
       try({
+        tmp_name <- database_standardize_name(shp_name[[i]], source = shp_source[[i]], dbname = dbname)
+      },
+      silent = T
+      )
+      for(alias in unique_aliases[i, ]){
+
+        tmp_tmp_name <- NA
         try({
-          tmp_name <- database_standardize_name(shp_name[[i]], source = shp_source[[i]], dbname = dbname)
+          tmp_tmp_name <- database_standardize_name(alias, source = shp_source[[i]], dbname = dbname)
         },
         silent = T
         )
-        for(alias in unique_aliases[i, ]){
-          try({
-            tmp_tmp_name <- database_standardize_name(shp_name[[i]], source = alias, dbname = dbname)
-          },
-          silent = T
-          )
-          if(!is.na(tmp_tmp_name)){
-            ## if no tmp_name, set it now
-            if(is.na(tmp_name)){
-              tmp_name <- tmp_tmp_name
-            } else if(tmp_name != tmp_tmp_name){
-              stop(paste(paste(shp_source[[i]], shp_name[[i]], sep = "::"),"matches two locations"))
-            }
+
+        if(!is.na(tmp_tmp_name)){
+          ## if no tmp_name, set it now
+          if(is.na(tmp_name)){
+            tmp_name <- tmp_tmp_name
+          } else if(isTRUE(tmp_name != tmp_tmp_name)){
+            stop(paste(paste(shp_source[[i]], shp_name[[i]], sep = "::"),"matches two locations"))
           }
         }
-        if(is.na(tmp_name)){
-          tmp_name <- paste(shp_source[[i]], shp_name[[i]], sep = "::")
-        }
+      }
+      if(is.na(tmp_name)){
+        tmp_name <- paste(shp_source[[i]], shp_name[[i]], sep = "::")
+      }
+      try({
         id <- globaltoolbox:::get_database_id_from_name(
           tmp_name,
           dbname = dbname
         )
       },
-      silent = TRUE)
+      silent = TRUE
+      )
       tryCatch({
         id <- database_add_descendent(
           standardized_parent_name = shp_source[[i]],
@@ -180,6 +189,7 @@ load_hierarchical_sf <- function(
           )
         },
         error = function(e){
+          message(e$message)
           if(!is.na(id) && (!grepl('UNIQUE constraint failed', e$message))){
             error_messages <<- c(
               error_messages,
@@ -230,6 +240,9 @@ load_hierarchical_sf <- function(
       }
     }
     cat("\n")
+    if(!is.na(log_file)){
+      stop("Not yet implemented")
+    }
     for(msg in error_messages){
         message(msg)
     }
@@ -508,15 +521,10 @@ find_geometry_source <- function(
 
 
 
-
-
-
-
-
 #' @name load_gadm
 #' @title load_gadm
 #' @description Build database of locations from online GADM data repository
-#' @param countries Vecotr of countries for which to load gadm information into the database. 
+#' @param countries Vector of countries for which to load gadm information into the database. 
 #' if countries="all", the whole GADM data repository will be loaded; this will take approximately XX hours
 #' and produce a database of ~XX Gb.
 #' @param max_depth The maximum depth from the country to pull information for.
