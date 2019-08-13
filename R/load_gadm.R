@@ -121,21 +121,24 @@ load_hierarchical_sf <- function(
       },
       silent = T
       )
-      for(alias in unique_aliases[i, ]){
-
-        tmp_tmp_name <- NA
-        try({
-          tmp_tmp_name <- database_standardize_name(alias, source = shp_source[[i]], dbname = dbname)
-        },
-        silent = T
-        )
-
-        if(!is.na(tmp_tmp_name)){
-          ## if no tmp_name, set it now
-          if(is.na(tmp_name)){
-            tmp_name <- tmp_tmp_name
-          } else if(isTRUE(tmp_name != tmp_tmp_name)){
-            stop(paste(paste(shp_source[[i]], shp_name[[i]], sep = "::"),"matches two locations"))
+      ## only check aliases if you couldn't find the original name
+      if(is.na(tmp_name)){
+        for(alias in unique_aliases[i, ]){
+  
+          tmp_tmp_name <- NA
+          try({
+            tmp_tmp_name <- database_standardize_name(alias, source = shp_source[[i]], dbname = dbname)
+          },
+          silent = T
+          )
+  
+          if(!is.na(tmp_tmp_name)){
+            ## if no tmp_name, set it now
+            if(is.na(tmp_name)){
+              tmp_name <- tmp_tmp_name
+            } else if(isTRUE(tmp_name != tmp_tmp_name)){
+              error_messages <- c(error_messages, paste(paste(shp_source[[i]], shp_name[[i]], sep = "::"),"matches two locations",tmp_name,"and",tmp_tmp_name))
+            }
           }
         }
       }
