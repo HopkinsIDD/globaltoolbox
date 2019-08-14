@@ -14,6 +14,10 @@ database_add_descendent <- function(
   metadata,
   dbname=default_database_filename()
 ){
+  ## Testing connection to fail fast
+  con <- DBI::dbConnect(drv = RSQLite::SQLite(), dbname)
+  RSQLite::dbDisconnect(con)
+
   standardized_descendent_name <- create_standardized_name(
     name = readable_descendent_name,
     parent = standardized_parent_name,
@@ -21,8 +25,7 @@ database_add_descendent <- function(
     dbname = dbname
   )
 
-  con <- DBI::dbConnect(drv = RSQLite::SQLite(), dbname)
-  if(!is.null(standardized_parent_name)){
+  if (!is.null(standardized_parent_name)){
     parent_id <- get_database_id_from_name(
       name = standardized_parent_name,
       dbname = dbname
@@ -41,10 +44,10 @@ database_add_descendent <- function(
     0,
     dbname = dbname
   )
-  if(grepl(':', standardized_descendent_name)){
+  if (grepl(":", standardized_descendent_name)){
     database_add_location_alias(
       location_id = descendent_id,
-      alias = gsub('.*:', '', standardized_descendent_name),
+      alias = gsub(".*:", "", standardized_descendent_name),
       dbname = dbname
     )
   }
@@ -53,7 +56,7 @@ database_add_descendent <- function(
     alias = standardized_descendent_name,
     dbname = dbname
   )
-  if(!is.null(standardized_parent_name)){
+  if (!is.null(standardized_parent_name)){
     ## Add all ancestors of parent as ancestors here
     query <- "INSERT INTO location_hierarchy
           (parent_id,descendent_id, depth)
@@ -65,9 +68,18 @@ database_add_descendent <- function(
               location_hierarchy
             WHERE
               descendent_id == {parent_id}"
-    DBI::dbClearResult(DBI::dbSendQuery(con, glue::glue_sql(.con = con, query)))
+    con <- DBI::dbConnect(drv = RSQLite::SQLite(), dbname)
+    tryCatch({
+      DBI::dbClearResult(
+        DBI::dbSendQuery(con, glue::glue_sql(.con = con, query))
+      )
+    },
+    error = function(e){
+      RSQLite::dbDisconnect(con)
+      stop(e$message)
+    })
+    RSQLite::dbDisconnect(con)
   }
-  RSQLite::dbDisconnect(con)
   return(descendent_id)
 }
 
@@ -89,7 +101,10 @@ database_standardize_name <- function(
   depth=NA,
   dbname = default_database_filename()
 ){
+  ## Testing the connection to fail fast
   con <- DBI::dbConnect(drv = RSQLite::SQLite(), dbname)
+  RSQLite::dbDisconnect(con)
+
   query <- "SELECT
     name
   FROM
@@ -125,12 +140,21 @@ database_standardize_name <- function(
       query <- paste(query, 'AND depth <= {depth}')
     }
   }
-  rc <- DBI::dbGetQuery(con, glue::glue_sql(.con = con, query))
+
+  con <- DBI::dbConnect(drv = RSQLite::SQLite(), dbname)
+  tryCatch({
+    rc <- DBI::dbGetQuery(con, glue::glue_sql(.con = con, query))
+  },
+  error = function(e){
+    RSQLite::dbDisconnect(con)
+    stop(e$message)
+  })
+  RSQLite::dbDisconnect(con)
+
   rc <- dplyr::filter(rc, !duplicated(name))
 
   if(length(rc$name) != 1){
     stop(paste("Ambiguous location", name, "has", nrow(rc), "location_ids"))
   }
-  RSQLite::dbDisconnect(con)
   return(rc$name)
 }
