@@ -1,0 +1,176 @@
+---
+title: "Tutorial: Using globaltoolbox to standardize locations and incorportate global data"
+author: "Shaun Truelove and Joshua Kaminsky"
+date: "August 12, 2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# globaltoolbox: An R package for standardizing spatial locations and data
+    
+The `globaltoolbox` R package was developed to help with large-scale analysis projects that include numerous, often unstandarized location names. This package is particularly targeted for use with standardizing location names at various administrative levels from unstandardized sources like free-form surveys or large-scale data aggregation projects that involve multiple sources.
+
+This tutorial is meant to demonstrate some of the applications and workflows that `globaltoolbox` for which is well-suited.
+
+## Installation
+
+Install the globaltoolbox package from github:
+
+```{r}
+devtools::install_github("HopkinsIDD/globaltoolbox")
+```
+
+## Use
+
+There are three main types of use of the globaltoolbox package. These include:
+
+1. General country-level location standardization, with fuzzy matching, standardized code identification (i.e., ISO, UN, etc.), and metadata linking and loading.
+1. Location standardization at multiple administrative levels using the predefined databases from GADM, GAUL, and others, along with metadata linking, etc.
+1. Location standardization and heirarchicalization of user-provided dataset.
+
+
+For General 
+
+### Create
+
+Before loading the database, please create it with the `create_database` function.
+
+### Load
+
+globaltoolbox provides a `load_gadm` function, which takes the ISO 3166-1 alpha 3 code of a country.  This will download all locations from GADM and add them to the database.
+
+```{r}
+globaltoolbox::load_gadm(countries = c('MWI','TZA'))
+```
+
+### Search
+
+globaltoolbox provides a `telescoping_standardize` function, which takes your best guess at the name of a location, and returns the standardized name (if it can find it). 
+
+```{r}
+# Baltimore, with know country
+globaltoolbox::telescoping_standardize(c("unitedstates::baltimore"))
+# Just Baltimore, no other information
+globaltoolbox::telescoping_standardize(c("baltimore"))
+# Misspelled
+globaltoolbox::telescoping_standardize(c("baltmore"))
+
+
+globaltoolbox::telescoping_standardize(c("afganistan::Kuranwamunjan"))
+globaltoolbox::telescoping_standardize(c("AFG::Kuranwamunjan"))
+globaltoolbox::telescoping_standardize(c("AFG::Kurawamujan"))
+globaltoolbox::telescoping_standardize(c("Kuranwamunjan"))
+
+globaltoolbox::standardize_name(c("Kuranwamunjan"))
+
+
+```
+
+
+
+A demonstration dataset called `testingdata_denguetycho` is included in the package for demonstration and testing.
+
+```{r demo_data}
+data(testingdata_bgdairportsurvey)
+head(testingdata_bgdairportsurvey)
+
+
+globaltoolbox::telescoping_standardize(c(testingdata_bgdairportsurvey$airports))
+
+
+```
+
+
+
+## Implementation
+
+Standardization of location names/identities is done through integration of multiple global spatial databases (GADM, GAUL), in addition to other datasets of cities and aliases. 
+Globaltoolbox maintains a database representing locations including:
+locations (numeric id, standard name, readable name, metadata)
+Locations represent a named place that is somewhat consistent through time
+They are the most important part of the database, and everything else references one or more of them
+They are colon separated to show hierarchical relationships
+e.g., ::tanzania
+aliases (location id, alias)
+Aliases are alternate names for locations
+They are used primarily to help fix non-standard names
+e.g., tza is an alias for ::tanzania
+Include alternative standardized codes (ISO, UN, etc.)
+geometries (location id, time left, time right, geometry)
+Geometries are polygon or point representations of the location
+Since the polygon may change in time due to border changes, we store each polygon with a time range representing when it is valid
+e.g., https://gadm.org/maps/TZA.html is a geometry for ::tanzania
+hierarchy (ancestor location id, last location id, depth)
+Hierarchies represent containment relationships
+We use hierarchies internally to determine scope (all locations contained in a particular location), and to help correct names
+e.g., ::tanzania::pembanorth is contained in ::tanzania
+
+## Main User Functionality
+
+Data Entry Functions
+database_add_location_alias
+database_add_descendent
+load_hierarchical_sf
+load_gadm
+Data Lookup Functions
+get_location_metadata
+get_all_aliases
+get_location_geometry
+(more coming soon)
+Name standardization functions
+standardize_name
+telescoping_standardize
+
+## Name Matching Tech
+Name standardization
+Encoding and transliteration (
+
+
+## String Matching Algorithms
+Fuzzy matching (multiple used in conjunction)
+Match probability -- to be implemented, probability given location level and available locations within database
+Typos : telescoping_standardize("tanzani") -> “::tanzania”
+Misspelling : telescoping_standardize("tanzinia") -> “::tanzania”
+Nonstandard : telescoping_standardize("tza::kusiniunguja") -> "::tanzania::zabzibarsouthandcentral" 
+depth first search
+> telescoping_standardize("tanzania::chake") -> “::tanzania::pembasouth::chake"
+
+## Additional functionality
+Functions for adding other publically available metadata, for example:
+WHO incidence data (measles)
+Others?
+
+## Still in Progress
+Name matching not perfect (and probably never will be)
+“::spane” -> “sapone” (“::burkinafaso::bazega::sapone”) without depth argument
+Should identify “Spain” ideally. Current R fuzzy matching agorithms are based on string length, number of character matches, etc. Phonetic matching relies on consonants. 
+Similarly “Usa” -> “japan::oita::usa”
+Database not perfect
+“::tanzania” and “::unitedrepublicoftanzania” are different locations
+“Usa” is not an alias for “unitedstatesofamerica”
+Database large (34 GB for database with shapefiles up to 2nd subcountry level; only 34Mb without shapefiles)
+Location merging (to solve the two tanzanias problem). The function exists, but it’s not passing tests yet.
+Performance issues (on the full database, matching takes 5 seconds or so)
+If possible, use user input to collect additional aliases/alternate names/spellings
+
+
+## Ideas from the group
+
+Is there specific functionality that others would find valuable?
+What use do people have for this sort of package?
+Does anyone have good testing data for this? This can be:
+Testing data: data with many, non-standardized location names
+Training data: data with non-standardized location names AND the fixed/standardized version
+Bug reports: a time where you tried to look up something, but got NA or something else instead (include what you looked up, what you got, and what you expected)
+Does anyone have data they think would be cool for us to incorporate into the database (lists of alternative names for places, lists of new places, lists of shapefiles for places etc)?
+ Integration with other data?
+DHS, worldpop, others?
+
+
+
+
+
+

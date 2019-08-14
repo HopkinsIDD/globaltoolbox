@@ -16,7 +16,7 @@ devtools::install_github("HopkinsIDD/globaltoolbox")
 
 ## Use
 
-To use globaltoolbox, there are two steps:
+To use globaltoolbox, there are three steps:
  
 1. Create the database (only required once)
 1. Load the database (only required once per country)
