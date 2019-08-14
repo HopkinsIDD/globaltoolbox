@@ -124,7 +124,8 @@ get_all_aliases <- function(
     alias,
     readable_name,
     location_id as id,
-    max(location_hierarchy.depth) as depth_from_source
+    max(location_hierarchy.depth) as depth_from_source,
+    metadata
   FROM
     (locations
       LEFT JOIN
@@ -160,6 +161,13 @@ get_all_aliases <- function(
   }
   query <- paste(query, "GROUP BY name,alias,location_id")
   rc <- DBI::dbGetQuery(con, glue::glue_sql(.con = con, query))
+  
+  # Temporary
+  rc$source_name <- NA
+  rc$source_name[grepl("GADM", rc$metadata)] <- "GADM"
+  rc$source_name[grepl("GAUL", rc$metadata)] <- "GAUL"
+  rc <- rc %>% dplyr::select(-"metadata")
+  
   RSQLite::dbDisconnect(con)
   return(rc)
 }

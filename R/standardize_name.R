@@ -9,6 +9,8 @@
 #' where it is located
 #' @param metadata Additional data that may be useful to identify the location name
 #' @param database database to pull location information from. If NULL, it will pull from the database included in the package.
+#' @param strict_scope 
+#' @param depth Depth in the tree to search, with country-level as depth=1.
 #' @param return_match_score logical, whether to return the matching score. Score reported on 0-1 scale, with 1 being a perfect match.
 #' @return standardized database code which can be used to identify other data
 #' @import dplyr
@@ -51,6 +53,11 @@ standardize_name <- function(
     depth = depth,
     strict_scope = strict_scope
   )
+  db_scoped <- dplyr::filter(db_scoped, !is.na(name) & name!="")
+  
+  # Temporary
+  db_scoped <- dplyr::filter(db_scoped, source_name=="GAUL")
+  
 
   ## Clean Locations and aliases to match
   ## cleaning here will be faster than for each match maybe
@@ -58,10 +65,12 @@ standardize_name <- function(
     db_scoped,
     .data$id,
     name = .data$name,
-    depth = .data$depth_from_source
-  )
-  names_b_data$name <-
-    standardize_location_strings(names_b_data$name)
+    depth = .data$depth_from_source)
+  names_b_data <- names_b_data %>% mutate(id_tmp = paste(id, name, sep="-")) %>% dplyr::filter(!duplicated(id_tmp))
+  
+# NEED TO PUT THIS IN LATER
+  # names_b_data$name <-
+  #   standardize_location_strings(names_b_data$name)
 
   ## Run the "match_names" function to match.
   ##  This returns a row index pertaining to names_b_data.
@@ -82,6 +91,8 @@ standardize_name <- function(
                             )
     names_b_data$name <-
       standardize_location_strings(names_b_data$name)
+    names_b_data <- names_b_data %>% mutate(id_tmp = paste(id, name, sep="-")) %>% dplyr::filter(!duplicated(id_tmp))
+    
 
     matches_[is.na(matches_)] <- sapply(location_clean[is.na(matches_)],
                                          match_names,
@@ -98,6 +109,8 @@ standardize_name <- function(
                              )
     names_b_data$name <-
       standardize_location_strings(names_b_data$name)
+    names_b_data <- names_b_data %>% mutate(id_tmp = paste(id, name, sep="-")) %>% dplyr::filter(!duplicated(id_tmp))
+    
 
     matches_[is.na(matches_)] <- sapply(location_clean[is.na(matches_)],
                                         match_names,
@@ -105,6 +118,8 @@ standardize_name <- function(
                                         return_match_score = FALSE)
   }
 
+  
+  
   if(all(is.na(matches_))){
     return(stats::setNames(matches_, original_location))
   }
@@ -127,9 +142,12 @@ standardize_name <- function(
 match_names <- function(name_a, names_b_data,
                         return_match_scores=FALSE,
                         clean_a=FALSE, clean_b=FALSE){
-
+  # If location ids, limit to unique ones
+  # if (!is.null(names_b_data$id)){
+  #   names_b_data <- names_b_data[!duplicated(names_b_data$id),]
+  # }
   names_b <- names_b_data$name
-
+  
   ## Clean name if not already done
   if (clean_a){
     name_a <- standardize_location_strings(name_a)
@@ -151,7 +169,8 @@ match_names <- function(name_a, names_b_data,
   ##   jaccard :
   ##   jw      :
   ##   soundex :
-  methods <- c("osa", "jw", "soundex")
+  methods <- c("osa", "jw", "cosine","jaccard", "soundex")
+  #methods <- c('osa','lv','dl','lcs','qgram','cosine','jaccard','jw','soundex')
   dists <- as.data.frame(matrix(
     NA,
     nrow = length(names_b),
@@ -163,10 +182,14 @@ match_names <- function(name_a, names_b_data,
       stringdist::stringdist(name_a, names_b, method = methods[j])
     )
   }
+  dists$soundex <- dists$soundex*10 # use soundex to weed out poor matches
+  #dists$lcs <- dists$lcs*2 # use longest common substring to weed out poor matches
+  
   dists <- data.frame(names_b_data,
                       names_clean = names_b,
                       dists,
                       score_sums = rowSums(dists))
+
   if(!all(is.na(dists))){
     dists$score_sums_normalized <-
       1 - (dists$score_sums / max(dists$score_sums))
