@@ -180,11 +180,17 @@ create_location_sf <- function(location_name, thorough = FALSE){
 telescoping_standardize <- function(
   location_name,
   max_jump_depth = NA,
-  dbname = default_database_filename()
+  dbname = default_database_filename(),
+  db="GAUL"
   ## metadata = ??
 ){
+  
   original_name <- location_name
-  location_name <- standardize_location_strings(location_name)
+  location_name_std <- standardize_location_strings(location_name)
+  
+  # reduce to only unique names for speed
+  location_name <- unique(location_name_std)
+  
   location_sf <- create_location_sf(location_name, thorough = TRUE)
   all_names <- list()
   for(level in sort(unique(location_sf$ISO_A2_level))){
@@ -214,7 +220,8 @@ telescoping_standardize <- function(
           location = gsub('.*:', '', nonstandard_names),
           scope = "",
           depth = max_jump_depth,
-          dbname = dbname
+          dbname = dbname,
+          db=db
           ## metadata = metadata
         )
      } else {
@@ -228,7 +235,8 @@ telescoping_standardize <- function(
           gsub('.*:', '', nonstandard_names),
           scope = scope,
           depth = max_jump_depth,
-          dbname = dbname
+          dbname = dbname,
+          db=db
         )
      }
       
@@ -262,5 +270,6 @@ telescoping_standardize <- function(
     )
   )
   location_sf <- dplyr::ungroup(location_sf)
+  location_sf <- location_sf[match(location_name_std, location_name),] # match back to original data with duplicates
   return(stats::setNames(location_sf$standardized_name, original_name))
 }

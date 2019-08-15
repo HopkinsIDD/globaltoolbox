@@ -21,6 +21,8 @@ Install the globaltoolbox package from github:
 
 ```{r}
 devtools::install_github("HopkinsIDD/globaltoolbox")
+library(tidyverse)
+library(globaltoolbox)
 ```
 
 ## Use
@@ -45,6 +47,8 @@ globaltoolbox provides a `load_gadm` function, which takes the ISO 3166-1 alpha 
 ```{r}
 globaltoolbox::load_gadm(countries = c('MWI','TZA'))
 ```
+
+
 
 ### Search
 
@@ -89,7 +93,7 @@ globaltoolbox::telescoping_standardize(c("togo", "unitedstates::baltimore", "uni
 
 # try multiple, with some scope info, and misspellings
 globaltoolbox::telescoping_standardize(c("togo", "baltmore", "unitedstates::kanss", "france::paris", "egytp::Kairo"))
-# FAILS
+# \
 globaltoolbox::standardize_name(c("togo", "baltmore", "unitedstates::kanss", "france::paris", "egytp::Kairo"))
 
 location_name <- c("togo", "baltmore", "unitedstates::kanss", "france::paris", "egytp::Kairo")
@@ -106,7 +110,23 @@ data(testingdata_bgdairportsurvey)
 head(testingdata_bgdairportsurvey)
 
 
-globaltoolbox::telescoping_standardize(c(testingdata_bgdairportsurvey$airports))
+airports_ <- data.frame(airports = testingdata_bgdairportsurvey$airports) %>% tidyr::separate(airports, into=paste0("airport_", 1:10), fill="right", sep=",") %>%
+  dplyr::select(which(colMeans(is.na(.))<1))
+
+standardize_name(airports_[1:50,2])
+standardize_name("amman", db="GAUL")
+standardize_name("BAGDAD")
+telescoping_standardize("AMMAN", db="GAUL")
+telescoping_standardize("AMMAN", db="GADM")
+
+telescoping_standardize("BAGDAD")
+
+
+airports2_matches <- telescoping_standardize(airports_[1:50,2])
+View(data.frame(airports2=names(airports2_matches), airports2_matches))
+
+telescoping_standardize(airports_[,2])
+
 
 
 ```
