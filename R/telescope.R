@@ -185,8 +185,7 @@ telescoping_standardize <- function(
 ){
   original_name <- location_name
   location_name <- standardize_location_strings(location_name)
-  location_sf <-
-    create_location_sf(location_name, thorough = TRUE)
+  location_sf <- create_location_sf(location_name, thorough = TRUE)
   all_names <- list()
   for(level in sort(unique(location_sf$ISO_A2_level))){
     tmp_location_sf <- location_sf[location_sf[["ISO_A2_level"]] == level, ]
@@ -209,6 +208,8 @@ telescoping_standardize <- function(
         nonstandard_names <- unique(
           tmp_location_sf$location_name[tmp_location_sf_idx]
         )
+        
+        # Standardize the name
         standard_names <- standardize_name(
           location = gsub('.*:', '', nonstandard_names),
           scope = "",
@@ -221,13 +222,16 @@ telescoping_standardize <- function(
           (!is.na(tmp_location_sf$standardized_source)) &
           (tmp_location_sf$standardized_source == scope)
         ])
+        
+        # Standardize the name
         standard_names <- standardize_name(
           gsub('.*:', '', nonstandard_names),
           scope = scope,
           depth = max_jump_depth,
           dbname = dbname
         )
-      }
+     }
+      
       names <- stats::setNames(standard_names, nonstandard_names)
       if(level <= length(all_names)){
         all_names[[level]] <- c(all_names[[level]], names)

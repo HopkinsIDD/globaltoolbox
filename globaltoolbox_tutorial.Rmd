@@ -67,6 +67,34 @@ globaltoolbox::telescoping_standardize(c("Kuranwamunjan"))
 globaltoolbox::standardize_name(c("Kuranwamunjan"))
 
 
+
+globaltoolbox::telescoping_standardize("togo::kara")
+globaltoolbox::telescoping_standardize("togo")
+
+globaltoolbox::standardize_name(c("togo"))
+
+
+globaltoolbox::standardize_name(c("togo", "baltimore"))
+globaltoolbox::telescoping_standardize(c("togo", "baltimore"))
+
+
+
+location_name <- c("usa::baltimore", "togo")
+
+# try multiple
+globaltoolbox::telescoping_standardize(c("togo", "baltimore", "kansas", "paris", "Cairo"))
+
+# try multiple, with some scope info
+globaltoolbox::telescoping_standardize(c("togo", "unitedstates::baltimore", "unitedstates::kansas", "france::paris", "Cairo"))
+
+# try multiple, with some scope info, and misspellings
+globaltoolbox::telescoping_standardize(c("togo", "baltmore", "unitedstates::kanss", "france::paris", "egytp::Kairo"))
+# FAILS
+globaltoolbox::standardize_name(c("togo", "baltmore", "unitedstates::kanss", "france::paris", "egytp::Kairo"))
+
+location_name <- c("togo", "baltmore", "unitedstates::kanss", "france::paris", "egytp::Kairo")
+
+
 ```
 
 

@@ -8,9 +8,11 @@
 #' @param scope a known standardized location scope, if available. For a city, this would be the code for the country
 #' where it is located
 #' @param metadata Additional data that may be useful to identify the location name
-#' @param database database to pull location information from. If NULL, it will pull from the database included in the package.
+#' @param dbname database name to pull location information from. Default pulls from the database included in the package.
+#' @param db_scoped inputted scoped database. This speeds it up when doing multiple matches.
 #' @param strict_scope 
 #' @param depth Depth in the tree to search, with country-level as depth=1.
+#' @param standardize_location Logical, whether location strings should be standardized. This is already done in `telescoping_standardize()`. Default is FALSE.
 #' @param return_match_score logical, whether to return the matching score. Score reported on 0-1 scale, with 1 being a perfect match.
 #' @return standardized database code which can be used to identify other data
 #' @import dplyr
@@ -22,6 +24,8 @@ standardize_name <- function(
   dbname=default_database_filename(),
   strict_scope=TRUE,
   depth=NA,
+  standardize_location=FALSE,
+  return_match_score=FALSE,
   ...
 ){
   original_location <- location
@@ -31,12 +35,13 @@ standardize_name <- function(
       "For multiple scopes, see telescoping_standardize"
     ))
   }
-
-  location_clean <- standardize_location_strings(location)
-
+  if (standardize_location){
+    location <- standardize_location_strings(location)
+  }
+  
   suppressWarnings(try({
       rc <- sapply(
-          location_clean,
+          location,
           database_standardize_name,
           source = scope,
           dbname = dbname
@@ -49,12 +54,12 @@ standardize_name <- function(
   
   ## limit database and alias_database to scope and metadata
   db_scoped <- get_all_aliases(
-    source = scope,
-    dbname = dbname,
-    depth = depth,
-    strict_scope = strict_scope
+      source = scope,
+      dbname = dbname,
+      depth = depth,
+      strict_scope = strict_scope
   )
-
+  
   # Temporary Fix
   db_scoped <- dplyr::filter(db_scoped, source_name=="GAUL")
   
@@ -63,7 +68,7 @@ standardize_name <- function(
   
   matches_ <- rep(NA, length(location))
   # First check if the location has already been standardized
-  if(any(grepl("::", location_clean))){
+  if(any(grepl("::", location))){
     
     ## -- cleaning here will be faster than for each match maybe
     names_b_data <- dplyr::select(
@@ -80,7 +85,7 @@ standardize_name <- function(
     ##  This returns a row index pertaining to names_b_data.
     ##  Any location not finding a best match will return NA
     ##  Any location finding multible different best matches will return NA
-    matches_ <- sapply(location_clean,
+    matches_ <- sapply(location,
                        match_names,
                        names_b_data = names_b_data,
                        return_match_score = FALSE)
@@ -99,11 +104,12 @@ standardize_name <- function(
     names_b_data$name <- standardize_location_strings(names_b_data$name)
     names_b_data <- names_b_data %>% mutate(id_tmp = paste(id, name, sep="-")) %>% dplyr::filter(!duplicated(id_tmp))
     
-    matches_[is.na(matches_)] <- sapply(location_clean[is.na(matches_)],
+    matches_[is.na(matches_)] <- sapply(location[is.na(matches_)],
                                          match_names,
                                          names_b_data = names_b_data,
                                          return_match_score = FALSE)
   }
+  
   # If no matches, try the Aliases
   if (sum(is.na(matches_)) > 0){
       names_b_data <- dplyr::select(
@@ -112,13 +118,14 @@ standardize_name <- function(
                                  name = .data$alias,
                                  depth = .data$depth_from_source
                              )
-    names_b_data$name <- standardize_location_strings(names_b_data$name)
-    names_b_data <- names_b_data %>% mutate(id_tmp = paste(id, name, sep="-")) %>% dplyr::filter(!duplicated(id_tmp))
-
-    matches_[is.na(matches_)] <- sapply(location_clean[is.na(matches_)],
-                                        match_names,
-                                        names_b_data = names_b_data,
-                                        return_match_score = FALSE)
+      names_b_data <- dplyr::filter(names_b_data, !is.na(name) & name!="")
+      names_b_data$name <- standardize_location_strings(names_b_data$name)
+      names_b_data <- names_b_data %>% mutate(id_tmp = paste(id, name, sep="-")) %>% dplyr::filter(!duplicated(id_tmp))
+  
+      matches_[is.na(matches_)] <- sapply(location[is.na(matches_)],
+                                          match_names,
+                                          names_b_data = names_b_data,
+                                          return_match_score = FALSE)
   }
   
   
@@ -164,16 +171,16 @@ match_names <- function(name_a, names_b_data,
 
   ## string matching methods
   ## Consider passing in methods as an argument?
-  ##   osa     :
-  ##   lv      :
-  ##   dl      :
-  ##   lcs     :
-  ##   qgram   :
-  ##   cosine  :
-  ##   jaccard :
-  ##   jw      :
-  ##   soundex :
-  methods <- c("osa", "jw", "cosine","jaccard", "soundex")
+  ##   lv      : Levenshtein distance - Minimal number of insertions, deletions and replacements needed for transforming string a into string b.
+  ##   dl      : Damerau-Levenshtein distance - Like Levenshtein distance, but transposition of adjacent symbols is allowed.
+  ##   osa     : Optimal String Alignment - Like (full) Damerau-Levenshtein distance but each substring may only be edited once.
+  ##   lcs     : Longest Common Substring distance - Minimum number of symbols that have to be removed in both strings until resulting substrings are identical.
+  ##   qgram   : q-gram distance - Sum of absolute differences between N-gram vectors of both strings.
+  ##   cosine  : Cosine distance - 1 minus the cosine similarity of both N-gram vectors.
+  ##   jaccard : Jaccard distance - 1 minues the quotient of shared N-grams and all observed N-grams.
+  ##   jw      : Jaro-Winkler distance - This distance is a formula of 5 parameters determined by the two compared strings (A,B,m,t,l) and p chosen from [0, 0.25].
+  ##   soundex : 
+  methods <- c("osa", "qgram", "jw", "cosine","jaccard", "soundex")
   #methods <- c('osa','lv','dl','lcs','qgram','cosine','jaccard','jw','soundex')
   dists <- as.data.frame(matrix(
     NA,
@@ -183,10 +190,10 @@ match_names <- function(name_a, names_b_data,
   ))
   for (j in 1:length(methods)){
     dists[, j]  <- suppressWarnings(
-      stringdist::stringdist(name_a, names_b, method = methods[j])
+      stringdist::stringdist(name_a, names_b, method = methods[j], q=2, p=.1)
     )
   }
-  dists$soundex <- dists$soundex*10 # use soundex to weed out poor matches
+  dists$soundex <- dists$soundex*3 # use soundex to weed out poor matches
   #dists$lcs <- dists$lcs*2 # use longest common substring to weed out poor matches
   
   dists <- data.frame(names_b_data,
@@ -207,9 +214,9 @@ match_names <- function(name_a, names_b_data,
   best_ <- NULL
   if (any(dists$osa <= 1)){
     ## OSA less than 1 is highly likely a match
-    best_ <- which(dists$score_sums == min(dists$score_sums))
+    best_ <- which(dists$osa <= 1 & dists$score_sums == min(dists$score_sums))
   } else if (any(dists$jw <= .1)){
-    best_ <- which(dists$score_sums == min(dists$score_sums))
+    best_ <- which(dists$jw <= .1 & dists$score_sums == min(dists$score_sums))
   } else if (any(dists$osa <= 3 & dists$jw <= 0.31 & dists$soundex == 0)){
     best_ <- which(dists$osa <= 3 & dists$jw <= 0.31 & dists$soundex == 0)
   }
@@ -224,7 +231,13 @@ match_names <- function(name_a, names_b_data,
 
   ## If more than 1 meeting the criteria for best match
   ## -- first check if they are the same, otherwise, return all
-  if (length(best_) > 1){
+      ## if only 1 best, replace best_ with ID
+  if (length(best_)==1){
+    best_match <- dists$id[best_]
+    best_match <- stats::setNames(best_match, dists$name[best_])
+    return(best_match)
+    
+  } else {
     dists_best <- dists[best_, ]
     ## Order by score sum
     dists_best <- dists_best[order(dists_best$score_sums), ]
@@ -239,12 +252,11 @@ match_names <- function(name_a, names_b_data,
         return(dists_best)
       }
       return(paste0(nrow(dists_best), " matches were found."))
+    } else {
+      best_match <- dists_best$id
+      best_match <- stats::setNames(best_match, dists_best$name)
+      return(best_match)
     }
-    ## if only 1 best, replace best_ with index
-  } else {
-    best_match <- dists$id[best_]
-    best_match <- stats::setNames(best_match, dists$name[best_])
-    return(best_match)
   }
 }
 
@@ -407,7 +419,7 @@ standardize_name_local <- function(
 
   ## Clean Locations and aliases to match
   ##   cleaning here will be faster than for each match (maybe?)
-  location_clean <- standardize_location_strings(location)
+  location <- standardize_location_strings(location)
   names_b_data <- db_scoped[, c('id', 'name')]
   names_b_data$name <-
     standardize_location_strings(names_b_data$name)
@@ -417,7 +429,7 @@ standardize_name_local <- function(
   ##    Any location not finding a best match will return NA
   ##    Any location finding multible different best matches will return NA
   matches_ <- sapply(
-    location_clean,
+    location,
     match_names,
     names_b_data = names_b_data,
     return_match_scores = return_match_scores,
