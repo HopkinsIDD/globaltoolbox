@@ -37,6 +37,13 @@ create_locations <- function(){
     metadata = list("test" = 3),
     tdbn
   )
+  attempt_fun(FUN = database_add_location,
+    NAME = "add_location",
+    name = "::tst2::tst",
+    readable_name = "Test 2",
+    metadata = list("test2" = 3),
+    tdbn
+  )
 }
 create_hierarchy <- function(){
   attempt_fun(
@@ -102,7 +109,7 @@ create_test_database <- function(){
     NAME = "add_descendent",
     standardized_parent_name = "",
     readable_descendent_name = "tst",
-    metadata = list("test" = 1),
+    metadata = list("test" = 1,"test3" = 1),
     dbname = tdbn
   )
   attempt_fun(
@@ -110,14 +117,22 @@ create_test_database <- function(){
     NAME = "add_descendent",
     standardized_parent_name = "",
     readable_descendent_name = "tst2",
-    metadata = list("test" = 2),
+    metadata = list("test" = 2, "test2"= 1),
     dbname = tdbn
   )
   attempt_fun(
     FUN = database_add_descendent,
     NAME = "add_descendent",
     standardized_parent_name = "::tst",
-    readable_descendent_name = "tst",
+    readable_descendent_name = "tst3",
+    metadata = list("test" = 3),
+    dbname = tdbn
+  )
+  attempt_fun(
+    FUN = database_add_descendent,
+    NAME = "add_descendent",
+    standardized_parent_name = "::tst2",
+    readable_descendent_name = "tst3",
     metadata = list("test" = 3),
     dbname = tdbn
   )
@@ -133,3 +148,41 @@ try({
   },
   silent = T
 )
+
+create_names_b_data <- function(){
+  names <- c(
+    "test",
+    "test",
+    "test",
+    "usa",
+    "baltimore",
+    "baltimore",
+    "tanzania",
+    "md",
+    "tza",
+    "bal",
+    "bra",
+    "phiction"
+  )
+  depths <- c(
+    1,
+    1,
+    1,
+    1,
+    1,
+    2,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1
+  )
+
+  return(data.frame(
+    id = 1:length(names),
+    name = names,
+    depth = depths,
+    id_tmp = 1:length(names)
+  ))
+}
