@@ -162,12 +162,6 @@ get_all_aliases <- function(
   query <- paste(query, "GROUP BY name,alias,location_id")
   rc <- DBI::dbGetQuery(con, glue::glue_sql(.con = con, query))
   
-  # Temporary
-  rc$source_name <- NA
-  rc$source_name[grepl("GADM", rc$metadata)] <- "GADM"
-  rc$source_name[grepl("GAUL", rc$metadata)] <- "GAUL"
-  rc <- rc %>% dplyr::select(-"metadata")
-  
   RSQLite::dbDisconnect(con)
   return(rc)
 }

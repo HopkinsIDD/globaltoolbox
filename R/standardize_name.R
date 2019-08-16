@@ -27,7 +27,6 @@ standardize_name <- function(
   standardize_location=FALSE,
   standardize_db=FALSE,
   return_match_score=FALSE,
-  db="GAUL", # Temporary parameter
   ...
 ){
   original_location <- location
@@ -67,10 +66,6 @@ standardize_name <- function(
     db_scoped$readable_name <- standardize_location_strings(db_scoped$readable_name)
     db_scoped$alias <- standardize_location_strings(db_scoped$alias)
   }
-  
-  # Temporary Fix
-  #db_scoped <- dplyr::filter(db_scoped, source_name=="GADM")
-  db_scoped <- dplyr::filter(db_scoped, source_name==db)
   
 
   ## Clean Locations and aliases to match
@@ -328,11 +323,6 @@ get_match_distances <- function(
     db_scoped$readable_name <- standardize_location_strings(db_scoped$readable_name)
     db_scoped$alias <- standardize_location_strings(db_scoped$alias)
   }
-  
-  # Temporary Fix
-  #db_scoped <- dplyr::filter(db_scoped, source_name=="GADM")
-  db_scoped <- dplyr::filter(db_scoped, source_name=="GAUL")
-  
   
   
   # Get list of distance matrices
