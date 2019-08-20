@@ -1,6 +1,11 @@
 source("help-functionality_check.R")
 context("Name standardization")
 
+
+
+
+# Test: standarize_name() -------------------------------------------------
+
 test_that("standardize_name", {
   initialize_database()
   create_test_database()
@@ -19,6 +24,9 @@ test_that("standardize_name", {
   },
   NA)
 })
+
+
+# Test: match_names() -----------------------------------------------------
 
 test_that("match_name", {
   expect_equal({

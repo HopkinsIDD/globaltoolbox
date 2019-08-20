@@ -81,9 +81,8 @@ standardize_name <- function(
       .data$id,
       name = .data$name,
       depth = .data$depth_from_source)
+    names_b_data <- dplyr::filter(names_b_data, !is.na(name) & name!="")     # Make sure no NAs or blanks
     names_b_data <- names_b_data %>% mutate(id_tmp = paste(id, name, sep="-")) %>% dplyr::filter(!duplicated(id_tmp))
-    # Make sure no NAs or blanks
-    names_b_data <- dplyr::filter(names_b_data, !is.na(name) & name!="")
 
     ## Run the "match_names" function to match.
     ##  This returns a row index pertaining to names_b_data.
@@ -103,7 +102,6 @@ standardize_name <- function(
                                 name = .data$readable_name,
                                 depth = .data$depth_from_source
                           )
-    # Make sure no NAs or blanks
     names_b_data <- dplyr::filter(names_b_data, !is.na(name) & name!="")
     names_b_data <- names_b_data %>% mutate(id_tmp = paste(id, name, sep="-")) %>% dplyr::filter(!duplicated(id_tmp))
     
@@ -130,12 +128,14 @@ standardize_name <- function(
                                           return_match_score = FALSE)
   }
   
-  # If no matches for any location, return NAs
-  if(all(is.na(matches_))){
-    return(stats::setNames(matches_, original_location))
-  }
+  
   # If any matches, return the matched name, with original, as a named vector
-  return(stats::setNames(db_scoped$name[match(matches_, db_scoped$id)], original_location))
+  matched_locs <- stats::setNames(db_scoped$name[match(matches_, db_scoped$id)], original_location)
+  
+  # If any with non-NA errors, put those into the returned value
+  matched_locs[is.na(matched_locs)] <- stats::setNames(matches_[is.na(matched_locs)], original_location[is.na(matched_locs)])
+  
+  return(matched_locs)
 }
 
 
@@ -164,110 +164,157 @@ match_names <- function(name_a, names_b_data,
   # if (!is.null(names_b_data$id)){
   #   names_b_data <- names_b_data[!duplicated(names_b_data$id),]
   # }
-  names_b <- names_b_data$name
+  names_b <- as.character(names_b_data$name)
   
   ## Clean name if not already done
   if (clean_a){
     name_a <- standardize_location_strings(name_a)
   }
-
+  
   ## Clean aliases if not done
   if (clean_b){
     names_b <- standardize_location_strings(names_b)
   }
-
-  ## string matching methods
-  ## Consider passing in methods as an argument?
-  ##   lv      : Levenshtein distance - Minimal number of insertions, deletions and replacements needed for transforming string a into string b.
-  ##   dl      : Damerau-Levenshtein distance - Like Levenshtein distance, but transposition of adjacent symbols is allowed.
-  ##   osa     : Optimal String Alignment - Like (full) Damerau-Levenshtein distance but each substring may only be edited once.
-  ##   lcs     : Longest Common Substring distance - Minimum number of symbols that have to be removed in both strings until resulting substrings are identical.
-  ##   qgram   : q-gram distance - Sum of absolute differences between N-gram vectors of both strings.
-  ##   cosine  : Cosine distance - 1 minus the cosine similarity of both N-gram vectors.
-  ##   jaccard : Jaccard distance - 1 minues the quotient of shared N-grams and all observed N-grams.
-  ##   jw      : Jaro-Winkler distance - This distance is a formula of 5 parameters determined by the two compared strings (A,B,m,t,l) and p chosen from [0, 0.25].
-  ##   soundex : 
-  methods <- c("osa", "qgram", "jw", "cosine","jaccard", "soundex")
-  #methods <- c('osa','lv','dl','lcs','qgram','cosine','jaccard','jw','soundex')
-  dists <- as.data.frame(matrix(
-    NA,
-    nrow = length(names_b),
-    ncol = length(methods),
-    dimnames = list(names_b, methods)
-  ))
-  for (j in 1:length(methods)){
-    dists[, j]  <- suppressWarnings(
-      stringdist::stringdist(name_a, names_b, method = methods[j], q=2, p=.1)
-    )
-  }
-  dists$soundex <- dists$soundex*3 # use soundex to weed out poor matches
-  #dists$lcs <- dists$lcs*2 # use longest common substring to weed out poor matches
   
-  dists <- data.frame(names_b_data,
-                      names_clean = names_b,
-                      dists,
-                      score_sums = rowSums(dists))
-
-  if(!all(is.na(dists))){
-    dists$score_sums_normalized <-
-      1 - (dists$score_sums / max(dists$score_sums))
-  } else {
-    dists$score_sums_normalized <- dists$score_sums
-  }
-  dists$osa <- as.integer(dists$osa)
-
-
-  ## get best match from results
-  best_ <- NULL
-  if (any(dists$osa <= 1)){
-    ## OSA less than 1 is highly likely a match
-    best_ <- which(dists$osa <= 1 & dists$score_sums == min(dists$score_sums))
-  } else if (any(dists$jw <= .1)){
-    best_ <- which(dists$jw <= .1 & dists$score_sums == min(dists$score_sums))
-  } else if (any(dists$osa <= 3 & dists$jw <= 0.31 & dists$soundex == 0)){
-    best_ <- which(dists$osa <= 3 & dists$jw <= 0.31 & dists$soundex == 0)
-  }
-
   
-  ## If no good match was found, return either nothing, or the score matrix (up to 20 long)
-  if (length(best_) == 0 & !return_match_scores){
-    return(NA)
-  } else if (length(best_) == 0 & return_match_scores){
-    return(dists[order(dists$score_sums), ][1:min(20, nrow(dists)),])
-  }
+  # First check for an exact match  .............................................................
+  exact_match <- (names_b %in% name_a)
+  
+  if (sum(exact_match)>=1){
 
-  ## If more than 1 meeting the criteria for best match
-  ## -- first check if they are the same, otherwise, return all
-      ## if only 1 best, replace best_ with ID
-  if (length(best_)==1){
-    best_match <- dists$id[best_]
-    best_match <- stats::setNames(best_match, dists$name[best_])
-    return(best_match)
-    
-  } else {
-    dists_best <- dists[best_, ]
-    ## Order by score sum
-    dists_best <- dists_best[order(dists_best$score_sums), ]
-    ## Remove duplicate ids
-    dists_best <- dists_best[!duplicated(dists_best$id), ]
-    ## Take the score of minimal depth
-    if (!return_match_scores){
-      dists_best <- dists_best[dists_best$depth == min(dists_best$depth), ]
+    # If 1 exact match
+    if (sum(exact_match)==1){
+      
+      if (return_match_scores){
+        return(list(best = setNames(names_b_data$id[exact_match], names_b_data$name[exact_match]),
+                    match_scores = NA))
+      } else {
+        return(setNames(names_b_data$id[exact_match], names_b_data$name[exact_match]))
+      }
+      
+    ## if  more than 1 best match, return the number of matches and the description data
+    } else {
+      if (return_match_scores){
+        return(list(best = setNames(names_b_data$id[exact_match], names_b_data$name[exact_match]),
+                    match_scores = names_b_data[exact_match,]))
+      } else {
+        return(paste0("ERROR: ", sum(exact_match), " matches were found."))
+      }
     }
     
-    ## if still more than 1 best match, return the number of matches or the distance matrix
-    if (nrow(dists_best) > 1){
-      if (return_match_scores){
-        return(dists_best[order(dists_best$score_sums), ][1:min(20, nrow(dists_best)),])
-      }
-      return(paste0(nrow(dists_best), " matches were found."))
+    
+  # If no exact match, do the string matching algorithms
+  } else {
+
+    ## string matching methods
+    ## Consider passing in methods as an argument?
+    ##   lv      : Levenshtein distance - Minimal number of insertions, deletions and replacements needed for transforming string a into string b.
+    ##   dl      : Damerau-Levenshtein distance - Like Levenshtein distance, but transposition of adjacent symbols is allowed.
+    ##   osa     : Optimal String Alignment - Like (full) Damerau-Levenshtein distance but each substring may only be edited once.
+    ##   lcs     : Longest Common Substring distance - Minimum number of symbols that have to be removed in both strings until resulting substrings are identical.
+    ##   qgram   : q-gram distance - Sum of absolute differences between N-gram vectors of both strings.
+    ##   cosine  : Cosine distance - 1 minus the cosine similarity of both N-gram vectors.
+    ##   jaccard : Jaccard distance - 1 minues the quotient of shared N-grams and all observed N-grams.
+    ##   jw      : Jaro-Winkler distance - This distance is a formula of 5 parameters determined by the two compared strings (A,B,m,t,l) and p chosen from [0, 0.25].
+    ##   soundex :
+    methods <- c("osa", "qgram", "jw", "cosine","jaccard", "soundex")
+    #methods <- c('osa','lv','dl','lcs','qgram','cosine','jaccard','jw','soundex')
+    dists <- as.data.frame(matrix(
+      NA,
+      nrow = length(names_b),
+      ncol = length(methods),
+      dimnames = list(names_b, methods)
+    ))
+    for (j in 1:length(methods)){
+      dists[, j]  <- suppressWarnings(
+        stringdist::stringdist(name_a, names_b, method = methods[j], q=2, p=.1)
+      )
+    }
+    dists$soundex <- dists$soundex*3 # use soundex to weed out poor matches
+    #dists$lcs <- dists$lcs*2 # use longest common substring to weed out poor matches
+  
+    dists <- data.frame(names_b_data,
+                        names_clean = names_b,
+                        dists,
+                        score_sums = rowSums(dists))
+  
+    if(!all(is.na(dists))){
+      dists$score_sums_normalized <-
+        1 - (dists$score_sums / max(dists$score_sums))
     } else {
-      best_match <- dists_best$id
-      best_match <- stats::setNames(best_match, dists_best$name)
-      return(best_match)
+      dists$score_sums_normalized <- dists$score_sums
+    }
+    dists$osa <- as.integer(dists$osa)
+  
+  
+    ## get best match from results
+    best_ <- NULL
+    if (any(dists$osa <= 1)){
+      ## OSA less than 1 is highly likely a match
+      best_ <- which(dists$osa <= 1 & dists$score_sums == min(dists$score_sums))
+    } else if (any(dists$jw <= .1)){
+      best_ <- which(dists$jw <= .1 & dists$score_sums == min(dists$score_sums))
+    } else if (any(dists$osa <= 3 & dists$jw <= 0.31 & dists$soundex == 0)){
+      best_ <- which(dists$osa <= 3 & dists$jw <= 0.31 & dists$soundex == 0)
+    }
+  
+  
+    ## If no good match was found, return either nothing, or the score matrix (up to 20 long)
+    if (length(best_) == 0 & !return_match_scores){
+      return(NA)
+    } else if (length(best_) == 0 & return_match_scores){
+      return(list(best = NA,
+                  match_scores = dists[order(dists$score_sums), ][1:min(20, nrow(dists)),]))
+    }
+  
+    ## If more than 1 meeting the criteria for best match
+    ## -- first check if they are the same, otherwise, return all
+    ## if only 1 best, replace best_ with ID
+    if (length(best_)==1){
+      best_match <- dists$id[best_]
+      best_match <- stats::setNames(best_match, dists$name[best_])
+  
+      if (!return_match_scores){
+        return(best_match)
+      } else {
+        return(list(best = best_match,
+                    match_scores = dists[order(dists$score_sums), ][1:min(20, nrow(dists)),]))
+      }
+  
+    } else if (length(best_)>1){
+      dists_best <- dists[best_, ]
+      ## Order by score sum
+      dists_best <- dists_best[order(dists_best$score_sums), ]
+      ## Remove duplicate ids
+      dists_best <- dists_best[!duplicated(dists_best$id), ]
+      ## Take the score of minimal depth
+      if (!return_match_scores){
+        dists_best <- dists_best[dists_best$depth == min(dists_best$depth), ]
+      }
+  
+      ## if still more than 1 best match, return the number of matches or the distance matrix
+      if (nrow(dists_best) > 1){
+        if (return_match_scores){
+          return(list(best = paste0("ERROR: ", nrow(dists_best), " matches were found.")),
+                 match_scores = dists_best[order(dists_best$score_sums), ][1:min(20, nrow(dists_best)),])
+        } else {
+          return(paste0("ERROR: ", nrow(dists_best), " matches were found."))
+        }
+      } else {
+        best_match <- dists_best$id
+        best_match <- stats::setNames(best_match, dists_best$name)
+  
+        if (!return_match_scores){
+          return(best_match)
+        } else {
+          return(list(best = best_match,
+                      match_scores = dists[order(dists$score_sums), ][1:min(20, nrow(dists)),]))
+        }
+      }
     }
   }
 }
+
 
 
 

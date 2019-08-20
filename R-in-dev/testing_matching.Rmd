@@ -1,0 +1,281 @@
+---
+title: "Testing Fuzzy Matching"
+author: "Shaun Truelove"
+date: "8/15/2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(globaltoolbox)
+
+```
+
+
+### Testing functions
+
+```{r functions}
+
+
+get_names_b_data <- function(name_type = c("std", "readable_name", "alias")){
+  
+   ## limit database and alias_database to scope and metadata
+  db_scoped <- get_all_aliases(
+      source = scope,
+      dbname = dbname,
+      depth = depth,
+      strict_scope = strict_scope
+  )
+
+  # Temporary Fix
+  db_scoped <- dplyr::filter(db_scoped)
+  
+  ## Clean Locations and aliases to match
+  
+  matches_ <- rep(NA, length(location))
+  
+  # First check if the location has already been standardized
+  if(name_type=="std"){
+    
+    ## -- cleaning here will be faster than for each match maybe
+    names_b_data <- dplyr::select(
+      db_scoped,
+      .data$id,
+      name = .data$name,
+      depth = .data$depth_from_source)
+  }
+  
+  # If no matches, try the readable_name
+  if(name_type=="readable_name"){
+    names_b_data <- dplyr::select(
+                                db_scoped,
+                                .data$id,
+                                name = .data$readable_name,
+                                depth = .data$depth_from_source
+                          )
+  }
+  
+  # If no matches, try the Aliases
+  if (name_type=="alias"){
+      names_b_data <- dplyr::select(
+                                 db_scoped,
+                                 .data$id,
+                                 name = .data$alias,
+                                 depth = .data$depth_from_source
+                             )
+  }
+  
+  names_b_data <- dplyr::filter(names_b_data, !is.na(name) & name!="")
+  names_b_data <- names_b_data %>% mutate(id_tmp = paste(id, name, sep="-")) %>% dplyr::filter(!duplicated(id_tmp))
+
+  return(names_b_data)
+}
+
+
+
+
+matching_test <- function(location, db="GAUL"){
+  
+  original_location <- location
+  location <- standardize_location_strings(location)
+  
+  ## limit database and alias_database to scope and metadata
+  db_scoped <- get_all_aliases(
+      source = scope,
+      dbname = dbname,
+      depth = depth,
+      strict_scope = strict_scope
+  )
+
+  # Temporary Fix
+  db_scoped <- dplyr::filter(db_scoped, source_name==db)
+  
+  ## Clean Locations and aliases to match
+  
+  matches_ <- rep(NA, length(location))
+  
+  # First check if the location has already been standardized
+  if(any(grepl("::", location))){
+    
+    ## -- cleaning here will be faster than for each match maybe
+    names_b_data <- dplyr::select(
+      db_scoped,
+      .data$id,
+      name = .data$name,
+      depth = .data$depth_from_source)
+    names_b_data <- names_b_data %>% mutate(id_tmp = paste(id, name, sep="-")) %>% dplyr::filter(!duplicated(id_tmp))
+    # Make sure no NAs or blanks
+    names_b_data <- dplyr::filter(names_b_data, !is.na(name) & name!="")
+
+    ## Run the "match_names" function to match.
+    ##  This returns a row index pertaining to names_b_data.
+    ##  Any location not finding a best match will return NA
+    ##  Any location finding multible different best matches will return NA
+    matches_ <- sapply(location,
+                       match_names,
+                       names_b_data = names_b_data,
+                       return_match_score = FALSE)
+  }
+  
+  # If no matches, try the readable_name
+  if(sum(is.na(matches_)) > 0){
+    names_b_data <- dplyr::select(
+                                db_scoped,
+                                .data$id,
+                                name = .data$readable_name,
+                                depth = .data$depth_from_source
+                          )
+    # Make sure no NAs or blanks
+    names_b_data <- dplyr::filter(names_b_data, !is.na(name) & name!="")
+    names_b_data <- names_b_data %>% mutate(id_tmp = paste(id, name, sep="-")) %>% dplyr::filter(!duplicated(id_tmp))
+    
+    matches_[is.na(matches_) & !is.na(location)] <- sapply(location[is.na(matches_) & !is.na(location)],
+                                         match_names,
+                                         names_b_data = names_b_data,
+                                         return_match_score = FALSE)
+  }
+  
+  # If no matches, try the Aliases
+  if (sum(is.na(matches_)) > 0){
+      names_b_data <- dplyr::select(
+                                 db_scoped,
+                                 .data$id,
+                                 name = .data$alias,
+                                 depth = .data$depth_from_source
+                             )
+      names_b_data <- dplyr::filter(names_b_data, !is.na(name) & name!="")
+      names_b_data <- names_b_data %>% mutate(id_tmp = paste(id, name, sep="-")) %>% dplyr::filter(!duplicated(id_tmp))
+  
+      matches_[is.na(matches_) & !is.na(location)] <- sapply(location[is.na(matches_) & !is.na(location)],
+                                          match_names,
+                                          names_b_data = names_b_data,
+                                          return_match_score = FALSE)
+  }
+  return(matches_)
+}
+
+
+
+
+
+standardize_test <- function(location, db="GAUL"){
+  
+  original_location <- location
+
+  ## limit database and alias_database to scope and metadata
+  db_scoped <- get_all_aliases( source = "", depth = NA, strict_scope = TRUE ) %>% 
+    dplyr::filter(source_name==db)
+  
+  matches_ <- rep(NA, length(location))
+    names_b_data <- dplyr::select( db_scoped, .data$id, name = .data$readable_name, depth = .data$depth_from_source) %>% 
+       dplyr::filter(!is.na(name) & name!="")   # Make sure no NAs or blanks
+    names_b_data$name <- standardize_location_strings(names_b_data$name)
+    names_b_data <- names_b_data %>% mutate(id_tmp = paste(id, name, sep="-")) %>% dplyr::filter(!duplicated(id_tmp))
+    
+    matches_[is.na(matches_)] <- sapply(location[is.na(matches_)],
+                                         match_names,
+                                         names_b_data = names_b_data,
+                                         return_match_score = FALSE)
+  
+  # If no matches, try the Aliases
+  if (sum(is.na(matches_)) > 0){
+      names_b_data <- dplyr::select(db_scoped, .data$id, name = .data$alias, depth = .data$depth_from_source)
+      names_b_data <- dplyr::filter(names_b_data, !is.na(name) & name!="")
+      names_b_data$name <- standardize_location_strings(names_b_data$name)
+      names_b_data <- names_b_data %>% mutate(id_tmp = paste(id, name, sep="-")) %>% dplyr::filter(!duplicated(id_tmp))
+  
+      matches_[is.na(matches_)] <- sapply(location[is.na(matches_)],
+                                          match_names,
+                                          names_b_data = names_b_data,
+                                          return_match_score = FALSE)
+  }
+  
+  # If no matches for any location, return NAs
+  if(all(is.na(matches_))){
+    return(stats::setNames(matches_, original_location))
+  }
+  # If any matches, return the matched name, with original, as a named vector
+  return(stats::setNames(db_scoped$name[match(matches_, db_scoped$id)], original_location))
+}
+
+```
+
+
+## Tests
+
+
+### Test 1. What happens if telescoping_standardize fails at one level but not another.
+
+#### First, one that works:
+```{r}
+telescoping_standardize(c("togo", "unitedstates::baltimore", "unitedstates::kansas", "france::paris", "Cairo"))
+```
+
+#### Now, one that should break:
+```{r}
+telescoping_standardize(c("togo", "unitedstates::basket", "unitedstates::kansas", "france::paris", "Cairo"))
+```
+It failed correctly.
+
+
+### Test 2. What happens if the higher level fails, but lower levels should match? Eventually we should have a function that identifies these and tests levels
+```{r}
+telescoping_standardize(c("togo", "unitedstates::baltimore", "unitedstates::kansas", "french::paris"))
+```
+That should not produce all NAs. Need to fix this.
+
+Check if it's the telescoping function
+```{r}
+telescoping_standardize(c("togo", "unitedstates::baltimore", "unitedstates::kansas", "french"))
+
+standardize_name(c("togo", "unitedstates", "unitedstates", "french"))
+standardize_name(c("togo", "unitedstates", "unitedstates", "france"))
+
+```
+Looks like its `standardize_name()`. 
+
+```{r}
+matching_test(c("togo", "unitedstates", "unitedstates", "french"))
+standardize_test(c("togo", "unitedstates", "unitedstates", "french"))
+```
+
+
+### More problems
+
+```{r}
+matching_test("amman", db="GAUL")
+matching_test("amman", db="GADM")
+
+standardize_test("amman", db="GAUL")
+
+get_match_distances("amman")
+
+```
+
+
+# Test if looking first for exact match speeds it up
+
+```{r}
+
+# names_b_data
+names_b_data <- get_names_b_data(name_type = "readable_name")
+names_b_data <- get_names_b_data(name_type = "alias")
+
+
+
+# Test 2 functions
+
+microbenchmark(f1 = match_names(name_a = "svelvik", names_b_data, return_match_scores=FALSE, clean_a=FALSE, clean_b=FALSE),
+               f2 = match_names_2(name_a = "svelvik", names_b_data, return_match_scores=FALSE, clean_a=FALSE,clean_b=FALSE),
+               times=10)
+
+# With misspelling
+microbenchmark(f1 = match_names(name_a = "svelvk", names_b_data, return_match_scores=FALSE, clean_a=FALSE, clean_b=FALSE),
+               f2 = match_names_2(name_a = "svelvk", names_b_data, return_match_scores=FALSE, clean_a=FALSE,clean_b=FALSE),
+               times=10)
+
+```
+Inclusion of exact matching speeds matching when exact exists by ~400x. When matching is not exact, it only adds a speed cost of ~5%.
+
+
