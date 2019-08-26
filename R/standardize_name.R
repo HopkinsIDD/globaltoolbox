@@ -10,7 +10,7 @@
 #' @param metadata Additional data that may be useful to identify the location name
 #' @param dbname database name to pull location information from. Default pulls from the database included in the package.
 #' @param db_scoped inputted scoped database. This speeds it up when doing multiple matches.
-#' @param strict_scope 
+#' @param strict_scope
 #' @param depth Depth in the tree to search, with country-level as depth=1.
 #' @param standardize_location Logical, whether location strings should be standardized. This is already done in `telescoping_standardize()`. Default is FALSE.
 #' @param return_match_score logical, whether to return the matching score. Score reported on 0-1 scale, with 1 being a perfect match.
@@ -52,7 +52,7 @@ standardize_name <- function(
     }
   },
   silent = TRUE))
-  
+
   ## limit database and alias_database to scope and metadata
   db_scoped <- get_all_aliases(
       source = scope,
@@ -60,21 +60,21 @@ standardize_name <- function(
       depth = depth,
       strict_scope = strict_scope
   )
-  
+
   if (standardize_db){
     db_scoped$name <- standardize_location_strings(db_scoped$name)
     db_scoped$readable_name <- standardize_location_strings(db_scoped$readable_name)
     db_scoped$alias <- standardize_location_strings(db_scoped$alias)
   }
-  
+
 
   ## Clean Locations and aliases to match
-  
+
   matches_ <- rep(NA, length(location))
-  
+
   # First check if the location has already been standardized
   if(any(grepl("::", location))){
-    
+
     ## -- cleaning here will be faster than for each match maybe
     names_b_data <- dplyr::select(
       db_scoped,
@@ -92,8 +92,25 @@ standardize_name <- function(
                        match_names,
                        names_b_data = names_b_data,
                        return_match_score = FALSE)
+
+    if (any(is.na(matches_))){
+      ## Unstandardize things without a match
+      tmp_scope <- gsub("::[^:]*$", "", g)
+      tmp_location <- gsub(".*:$", "", g)
+      if (tmp_scope != scope){
+        stop(paste(
+          "The scopes do not agree, the location provides",
+          tmp_scope,
+          "but you provided",
+          scope)
+        )
+      }
+      ## For the rest of matching use the simplified version
+      scope <- tmp_scope
+      location <- tmp_location
+    }
   }
-  
+
   # If no matches, try the readable_name
   if(sum(is.na(matches_)) > 0){
     names_b_data <- dplyr::select(
@@ -104,13 +121,13 @@ standardize_name <- function(
                           )
     names_b_data <- dplyr::filter(names_b_data, !is.na(name) & name!="")
     names_b_data <- names_b_data %>% mutate(id_tmp = paste(id, name, sep="-")) %>% dplyr::filter(!duplicated(id_tmp))
-    
+
     matches_[is.na(matches_) & !is.na(location)] <- sapply(location[is.na(matches_) & !is.na(location)],
                                          match_names,
                                          names_b_data = names_b_data,
                                          return_match_score = FALSE)
   }
-  
+
   # If no matches, try the Aliases
   if (sum(is.na(matches_)) > 0){
       names_b_data <- dplyr::select(
@@ -121,20 +138,20 @@ standardize_name <- function(
                              )
       names_b_data <- dplyr::filter(names_b_data, !is.na(name) & name!="")
       names_b_data <- names_b_data %>% mutate(id_tmp = paste(id, name, sep="-")) %>% dplyr::filter(!duplicated(id_tmp))
-  
+
       matches_[is.na(matches_) & !is.na(location)] <- sapply(location[is.na(matches_) & !is.na(location)],
                                           match_names,
                                           names_b_data = names_b_data,
                                           return_match_score = FALSE)
   }
-  
-  
+
+
   # If any matches, return the matched name, with original, as a named vector
   matched_locs <- stats::setNames(db_scoped$name[match(matches_, db_scoped$id)], original_location)
-  
+
   # If any with non-NA errors, put those into the returned value
   matched_locs[is.na(matched_locs)] <- stats::setNames(matches_[is.na(matched_locs)], original_location[is.na(matched_locs)])
-  
+
   return(matched_locs)
 }
 
@@ -154,58 +171,67 @@ standardize_name <- function(
 match_names <- function(name_a, names_b_data,
                         return_match_scores=FALSE,
                         clean_a=FALSE, clean_b=FALSE){
-  
+
   # Check for error (NA in name_a)
-  if(is.na(name_a)){
-    return(stats::setNames(NA, NA))
+  if (is.na(name_a)){
+    return(stats::setNames(as.integer(NA), name_a))
   }
-  
+
   # If location ids, limit to unique ones
   # if (!is.null(names_b_data$id)){
   #   names_b_data <- names_b_data[!duplicated(names_b_data$id),]
   # }
   names_b <- as.character(names_b_data$name)
-  
+
   ## Clean name if not already done
   if (clean_a){
     name_a <- standardize_location_strings(name_a)
   }
-  
+
   ## Clean aliases if not done
   if (clean_b){
     names_b <- standardize_location_strings(names_b)
   }
-  
-  
+
+
   # First check for an exact match  .............................................................
   exact_match <- (names_b %in% name_a)
-  
-  if (sum(exact_match)>=1){
 
+  if (sum(exact_match)>=1){
+    ## Ensure that only the lowest depth matches are allowed
+    exact_match[which(exact_match)] <- names_b_data$depth[exact_match] == min(names_b_data$depth[exact_match])
     # If 1 exact match
     if (sum(exact_match)==1){
-      
+
       if (return_match_scores){
         return(list(best = setNames(names_b_data$id[exact_match], names_b_data$name[exact_match]),
                     match_scores = NA))
       } else {
         return(setNames(names_b_data$id[exact_match], names_b_data$name[exact_match]))
       }
-      
+
     ## if  more than 1 best match, return the number of matches and the description data
     } else {
       if (return_match_scores){
         return(list(best = setNames(names_b_data$id[exact_match], names_b_data$name[exact_match]),
                     match_scores = names_b_data[exact_match,]))
       } else {
-        return(paste0("ERROR: ", sum(exact_match), " matches were found."))
+        stop(paste0(sum(exact_match), " matches were found."))
+        # return(paste0("ERROR: ", sum(exact_match), " matches were found."))
       }
     }
-    
-    
+
+
   # If no exact match, do the string matching algorithms
   } else {
 
+    if ( (nchar(name_a) <= 3) & !return_match_scores){
+      return(setNames(as.integer(NA),name_a))
+    } else if ( (nchar(name_a) <= 3) & return_match_scores){
+      return(list(best = setNames(as.integer(NA, name_a)),
+        match_scores = rep(as.numeric(NA), times = min(20, nrow(dists)))
+      ))
+    }
     ## string matching methods
     ## Consider passing in methods as an argument?
     ##   lv      : Levenshtein distance - Minimal number of insertions, deletions and replacements needed for transforming string a into string b.
@@ -232,12 +258,12 @@ match_names <- function(name_a, names_b_data,
     }
     dists$soundex <- dists$soundex*3 # use soundex to weed out poor matches
     #dists$lcs <- dists$lcs*2 # use longest common substring to weed out poor matches
-  
+
     dists <- data.frame(names_b_data,
                         names_clean = names_b,
                         dists,
                         score_sums = rowSums(dists))
-  
+
     if(!all(is.na(dists))){
       dists$score_sums_normalized <-
         1 - (dists$score_sums / max(dists$score_sums))
@@ -245,8 +271,8 @@ match_names <- function(name_a, names_b_data,
       dists$score_sums_normalized <- dists$score_sums
     }
     dists$osa <- as.integer(dists$osa)
-  
-  
+
+
     ## get best match from results
     best_ <- NULL
     if (any(dists$osa <= 1)){
@@ -257,30 +283,30 @@ match_names <- function(name_a, names_b_data,
     } else if (any(dists$osa <= 3 & dists$jw <= 0.31 & dists$soundex == 0)){
       best_ <- which(dists$osa <= 3 & dists$jw <= 0.31 & dists$soundex == 0)
     }
-  
-  
+
+
     ## If no good match was found, return either nothing, or the score matrix (up to 20 long)
     if (length(best_) == 0 & !return_match_scores){
-      return(NA)
+      return(setNames(as.integer(NA), name_a))
     } else if (length(best_) == 0 & return_match_scores){
-      return(list(best = NA,
+      return(list(best = setNames(as.integer(NA), name_a),
                   match_scores = dists[order(dists$score_sums), ][1:min(20, nrow(dists)),]))
     }
-  
+
     ## If more than 1 meeting the criteria for best match
     ## -- first check if they are the same, otherwise, return all
     ## if only 1 best, replace best_ with ID
     if (length(best_)==1){
       best_match <- dists$id[best_]
       best_match <- stats::setNames(best_match, dists$name[best_])
-  
+
       if (!return_match_scores){
         return(best_match)
       } else {
         return(list(best = best_match,
                     match_scores = dists[order(dists$score_sums), ][1:min(20, nrow(dists)),]))
       }
-  
+
     } else if (length(best_)>1){
       dists_best <- dists[best_, ]
       ## Order by score sum
@@ -291,19 +317,21 @@ match_names <- function(name_a, names_b_data,
       if (!return_match_scores){
         dists_best <- dists_best[dists_best$depth == min(dists_best$depth), ]
       }
-  
+
       ## if still more than 1 best match, return the number of matches or the distance matrix
       if (nrow(dists_best) > 1){
         if (return_match_scores){
+          stop(nrow(dists_best), "matches were found")
           return(list(best = paste0("ERROR: ", nrow(dists_best), " matches were found.")),
                  match_scores = dists_best[order(dists_best$score_sums), ][1:min(20, nrow(dists_best)),])
         } else {
-          return(paste0("ERROR: ", nrow(dists_best), " matches were found."))
+          stop(paste0(nrow(dists_best), " matches were found."))
+          # return(paste0("ERROR: ", nrow(dists_best), " matches were found."))
         }
       } else {
         best_match <- dists_best$id
         best_match <- stats::setNames(best_match, dists_best$name)
-  
+
         if (!return_match_scores){
           return(best_match)
         } else {
@@ -328,7 +356,7 @@ match_names <- function(name_a, names_b_data,
 #' @param metadata Additional data that may be useful to identify the location name
 #' @param dbname database name to pull location information from. Default pulls from the database included in the package.
 #' @param db_scoped inputted scoped database. This speeds it up when doing multiple matches.
-#' @param strict_scope 
+#' @param strict_scope
 #' @param depth Depth in the tree to search, with country-level as depth=1.
 #' @param standardize_location Logical, whether location strings should be standardized. This is already done in `telescoping_standardize()`. Default is FALSE.
 #' @param return_match_score logical, whether to return the matching score. Score reported on 0-1 scale, with 1 being a perfect match.
@@ -356,7 +384,7 @@ get_match_distances <- function(
   if (standardize_location){
     location <- standardize_location_strings(location)
   }
- 
+
   ## limit database and alias_database to scope and metadata
   db_scoped <- get_all_aliases(
     source = scope,
@@ -364,14 +392,14 @@ get_match_distances <- function(
     depth = depth,
     strict_scope = strict_scope
   )
-  
+
   if (standardize_db){
     db_scoped$name <- standardize_location_strings(db_scoped$name)
     db_scoped$readable_name <- standardize_location_strings(db_scoped$readable_name)
     db_scoped$alias <- standardize_location_strings(db_scoped$alias)
   }
-  
-  
+
+
   # Get list of distance matrices
    names_b_data <- dplyr::select(
       db_scoped,
@@ -382,7 +410,7 @@ get_match_distances <- function(
     # Make sure no NAs or blanks
     names_b_data <- dplyr::filter(names_b_data, !is.na(name) & name!="")
     names_b_data <- names_b_data %>% mutate(id_tmp = paste(id, name, sep="-")) %>% dplyr::filter(!duplicated(id_tmp))
-    
+
     match_dists <- list()
     for (m in 1:length(location)){
       match_dists[[location[m]]] <- dplyr::right_join(db_scoped %>% dplyr::select(name_full=name, id) %>% filter(!duplicated(id)),
@@ -390,7 +418,7 @@ get_match_distances <- function(
                                                       by=c("id"))
     }
     return(match_dists)
- 
+
 }
 
 

@@ -196,7 +196,7 @@ test_that("Retrieve ID", {
 
 test_that("Merge Locations", {
   initialize_database()
-  create_locations()
+  create_test_database()
   expect_error({
     database_merge_locations(
       "::tst",
@@ -212,14 +212,14 @@ test_that("Merge Locations", {
   },
   FALSE)
 
-  expect_equal({
+  expect_error({
       is.na(get_database_id_from_name("::tst", dbname = tdbn))
   },
-  TRUE)
+  "Ambiguous location ::tst has 0 location_ids")
 
   expect_equal({
       initialize_database()
-      create_locations()
+      create_test_database()
       tst_aliases <- get_all_aliases("::tst", dbname = tdbn)
       tst2_aliases <- get_all_aliases("::tst2", dbname = tdbn)
       database_merge_locations(
@@ -227,11 +227,64 @@ test_that("Merge Locations", {
           "::tst2",
           dbname = tdbn
       )
-      new_tst2_aliases <- get_all_aliases("::tst", dbname = tdbn)
+      new_tst2_aliases <- get_all_aliases("::tst2", dbname = tdbn)
       isTRUE(all.equal(
           sort(unique(c(tst_aliases$alias, tst2_aliases$alias))),
-          sort(unique(new_tst2_aliases))
+          sort(unique(new_tst2_aliases$alias))
       ))
+  },
+  TRUE)
+
+  expect_equal({
+      initialize_database()
+      create_test_database()
+      tst_metadata <- get_location_metadata("::tst", dbname = tdbn,aliases=FALSE)
+      tst2_metadata <- get_location_metadata("::tst2", dbname = tdbn,aliases=FALSE)
+      database_merge_locations(
+          "::tst",
+          "::tst2",
+          dbname = tdbn
+      )
+      new_tst2_metadata <- get_location_metadata("::tst2", dbname = tdbn,aliases=FALSE)
+      lhs = cbind(tst_metadata[,-(1:8),drop=FALSE], tst2_metadata[,-(1:8),drop=FALSE])
+      rhs <- new_tst2_metadata[,-(1:8),drop=FALSE]
+      all(names(rhs) %in% names(lhs))
+  },
+  TRUE)
+
+  expect_equal({
+      initialize_database()
+      create_test_database()
+      tst_metadata <- get_location_metadata("::tst", dbname = tdbn,aliases=FALSE)
+      tst2_metadata <- get_location_metadata("::tst2", dbname = tdbn,aliases=FALSE)
+      database_merge_locations(
+          "::tst",
+          "::tst2",
+          dbname = tdbn
+      )
+      new_tst2_metadata <- get_location_metadata("::tst2", dbname = tdbn,aliases=FALSE)
+      lhs = cbind(tst_metadata[,-(1:8),drop=FALSE], tst2_metadata[,-(1:8),drop=FALSE])
+      rhs <- new_tst2_metadata[,-(1:8),drop=FALSE]
+      toggle <- TRUE
+      for(name in names(rhs)){
+        toggle <- toggle && all(rhs[[name]] %in% lhs[names(lhs) == name])
+      }
+      return(toggle)
+  },
+  TRUE)
+
+  expect_equal({
+      initialize_database()
+      create_test_database()
+      tst_children <- get_location_metadata(source="::tst", dbname = tdbn,aliases=FALSE)
+      tst2_children <- get_location_metadata(source="::tst2", dbname = tdbn,aliases=FALSE)
+      database_merge_locations(
+          "::tst",
+          "::tst2",
+          dbname = tdbn
+      )
+      new_tst2_children <- get_location_metadata(source="::tst2", dbname = tdbn,aliases=FALSE)
+      new_tst2_children$id %in% c(tst_children$id,tst2_children$id)
   },
   TRUE)
 })

@@ -1,5 +1,62 @@
 #' @include string_manipulation.R
 
+#' @name load_country_aliases
+#' @title load_country_aliases
+#' @description create entries for countries and their aliases in a database
+#' @param dbname The name of the database.
+#' @export
+load_country_aliases <- function(dbname = default_database_filename()){
+  filename <- system.file(
+    "extdata",
+    "alt_country_names.csv",
+    package = "globaltoolbox"
+  )
+  countries <- read.csv(filename, stringsAsFactors = FALSE)[, -1]
+  countries <- countries[,c(2:ncol(countries), 1)]
+  for (row in 1:nrow(countries)){
+    non_na_column_found <- FALSE
+    id <- NA
+    ## Check to see if the country is in the database:
+    country_names <- countries[row, ]
+    country_names <- country_names[!is.na(country_names)]
+    country_names <- country_names[country_names != ""]
+    country_names <- unique(unlist(setNames(
+      standardize_string(country_names),
+      country_names)))
+    # country_names <- database_standardize_name(country_names, dbname = dbname)
+    # if(any(!is.na(country_names))){
+    #   country_names <- country_names[!is.na(country_names)]
+    #   stop(paste(names(country_names), "matches", country_names))
+    # }
+    # country_names <- names(country_names)
+    for (name in country_names){
+      if (non_na_column_found){
+        database_add_location_alias(location_id = id, alias = name, dbname = dbname)
+      } else {
+        found <- FALSE
+        suppressWarnings(try({
+          tmp_name <- database_standardize_name(name, "", TRUE, TRUE, 1, dbname)
+          found <- TRUE
+        },
+        silent = TRUE
+        ))
+        if(found){
+          stop(paste(name,"matches",tmp_name))
+        }
+        id <- database_add_descendent(
+          readable_descendent_name = name,
+          standardized_parent_name = "",
+          metadata = list(source_name = "globaltoolbox"),
+          dbname = dbname
+        )
+        non_na_column_found <- TRUE
+      }
+    }
+  }
+}
+
+
+
 #' @name standardize_gadm_lhs_time
 #' @title standardize_gadm_lhs_time
 #' @description Turn gadm start times into Date objects
@@ -77,32 +134,42 @@ load_hierarchical_sf <- function(
   alias_column_names,
   source_name,
   max_depth = NA,
+  geometry = TRUE,
   log_file = as.character(NA),
   dbname = default_database_filename()
 ){
-  error_messages <- c('')
-  shp_files <- sf::st_read(filename)
-  n_levels = min(max_depth,length(hierarchy_column_names),na.rm=TRUE)
+  error_messages <- c("")
+  shp_files <- sf::st_read(filename, stringsAsFactors = FALSE)
+  n_levels <- min(max_depth, length(hierarchy_column_names), na.rm = TRUE)
   for (level in 1:n_levels){
     alias_columns <- alias_column_names[[level]]
     all_names <- tibble::as_tibble(shp_files)
-    all_aliases <- all_names[,c(hierarchy_column_names[1:level], alias_columns)]
+    all_aliases <- all_names[, c(
+      hierarchy_column_names[1:level],
+      alias_columns
+    )]
     all_names <- all_names[, hierarchy_column_names[1:level] ]
-    all_string_names <- apply(all_names, 1, paste, collapse = '::')
+    all_string_names <- apply(all_names, 1, paste, collapse = "::")
     unique_names <- unique(all_names)
-    if(nrow(unique(all_aliases)) == nrow(unique_names)){
+    if (nrow(unique(all_aliases)) == nrow(unique_names)){
       unique_aliases <- unique(all_aliases)[, alias_columns]
     } else {
-      stop("This code is not yet written")
-      ## This code should loop over names and combine the associated aliases
+      unique_aliases <- summarize(
+        group_by(
+          unique(all_aliases),
+          !!!rlang::syms(hierarchy_column_names[1:level])
+        ),
+        !!alias_columns := paste(!!!rlang::syms(alias_columns), collapse = "|")
+      )[, alias_columns]
     }
-    unique_string_names <- apply(unique_names, 1, paste, collapse = '::')
+    unique_string_names <- apply(unique_names, 1, paste, collapse = "::")
     last_level <- level - 1
     shp_name <- unique_names[[level]]
     shp_name <- standardize_location_strings(shp_name)
     missing_idx <- is.na(shp_name) |
-        (shp_name == 'administrativeunitnotavailable') |
-        (shp_name == '')
+        (shp_name == "administrativeunitnotavailable") |
+        (shp_name == "nameunknown") |
+        (shp_name == "")
     unique_names <- unique_names[!missing_idx, ]
     unique_aliases <- unique_aliases[!missing_idx, ]
     shp_name <- shp_name[!missing_idx]
@@ -116,22 +183,22 @@ load_hierarchical_sf <- function(
       cat(paste0("\rlevel ", level, ": ", i, "/", nrow(unique_names)))
       id <- NA
       tmp_name <- NA
-      try({
+      suppressWarnings(try({
         tmp_name <- database_standardize_name(shp_name[[i]], source = shp_source[[i]], dbname = dbname)
       },
       silent = T
-      )
+      ))
       ## only check aliases if you couldn't find the original name
       if(is.na(tmp_name)){
         for(alias in unique_aliases[i, ]){
-  
+
           tmp_tmp_name <- NA
-          try({
+          suppressWarnings(try({
             tmp_tmp_name <- database_standardize_name(alias, source = shp_source[[i]], dbname = dbname)
           },
           silent = T
-          )
-  
+          ))
+
           if(!is.na(tmp_tmp_name)){
             ## if no tmp_name, set it now
             if(is.na(tmp_name)){
@@ -145,14 +212,14 @@ load_hierarchical_sf <- function(
       if(is.na(tmp_name)){
         tmp_name <- paste(shp_source[[i]], shp_name[[i]], sep = "::")
       }
-      try({
+      suppressWarnings(try({
         id <- globaltoolbox:::get_database_id_from_name(
           tmp_name,
           dbname = dbname
         )
       },
       silent = TRUE
-      )
+      ))
       tryCatch({
         id <- database_add_descendent(
           standardized_parent_name = shp_source[[i]],
@@ -192,8 +259,8 @@ load_hierarchical_sf <- function(
           )
         },
         error = function(e){
-          message(e$message)
           if(!is.na(id) && (!grepl('UNIQUE constraint failed', e$message))){
+            message(e$message)
             error_messages <<- c(
               error_messages,
               paste(
@@ -209,7 +276,7 @@ load_hierarchical_sf <- function(
           }
         })
       }
-      if(level == length(hierarchy_column_names)){
+      if(geometry & (level == length(hierarchy_column_names))){
         tryCatch({
             geometry <- shp_files[
                 all_string_names == unique_string_names[[i]],
@@ -338,6 +405,7 @@ load_sf <- function(
     tmp_sources <- sources[idx, ]
 
     if(tmp_sources$exact_match){
+      stop("This code is not yet implemented")
       warning("This implementation is fragile")
 
       ## try({
@@ -347,7 +415,7 @@ load_sf <- function(
       ## standardized_parent_name = tmp_sources$source,
       ## readable_descendent_name = sf_object[[name_column]][idx]
       ## )
-      ## 
+      ##
       ## database_merge_locations(
       ## descendent_id,
       ## get_database_id_from_name(sources$source[idx]),
@@ -419,6 +487,8 @@ load_sf <- function(
     }
   }
 }
+
+
 
 #' @name find_geometry_source
 #' @title find_geometry_source
@@ -527,7 +597,7 @@ find_geometry_source <- function(
 #' @name load_gadm
 #' @title load_gadm
 #' @description Build database of locations from online GADM data repository
-#' @param countries Vector of countries for which to load gadm information into the database. 
+#' @param countries Vector of countries for which to load gadm information into the database.
 #' if countries="all", the whole GADM data repository will be loaded; this will take approximately XX hours
 #' and produce a database of ~XX Gb.
 #' @param max_depth The maximum depth from the country to pull information for.
@@ -552,20 +622,20 @@ load_gadm <- function(
   } else {
     unmatched_countries <- countries[!(countries %in% c(as.character(country_aliases[,1]),as.character(country_aliases[,2])))]
     if(length(unmatched_countries) > 0){
-      stop(paste0("Error: No countries matching [", paste(unmatched_countries, collapse = ", "), 
+      stop(paste0("Error: No countries matching [", paste(unmatched_countries, collapse = ", "),
                     "] could be identified. Please check spelling or re-specify."))
     }
     country_aliases <- country_aliases[
       (country_aliases[, 1] == countries ) |
         (country_aliases[, 2] == countries ),
     ]
-    
+
   }
 
   countries <- unique(country_aliases$country_code)
-  
+
   error_messages <- c('')
-  
+
   alias_ISO_columns <- c(
     "HASC",
     "VARNAME",
@@ -574,11 +644,11 @@ load_gadm <- function(
     "ID",
     "NL_NAME"
   )
-  
+
   for(ISO_A1 in countries){
     print(ISO_A1)
     destination <- tempfile(fileext = '.rds')
-    
+
     ## Download GADM for the country
     suppressWarnings(try({
       ISO_level <- 0
@@ -593,7 +663,7 @@ load_gadm <- function(
       utils::download.file(website, destination, mode = 'wb')
     },
     silent = T))
-    
+
     ## if GADM file downloaded correctly process it
     if(file.exists(destination) & (file.size(destination) > 0)){
       country_data <- sf::st_as_sf(readRDS(destination))
@@ -661,7 +731,7 @@ load_gadm <- function(
       silent = T)
       unlink(destination)
     }
-    
+
     ## Lower level regions:
     toggle <- TRUE
     ISO_level <- 0

@@ -1,5 +1,5 @@
 ## JK: This line prevents warnings about free variables.
-if(getRversion() >= "2.15.1")  utils::globalVariables(c("."))
+if (getRversion() >= "2.15.1")  utils::globalVariables(c("."))
 
 #' @name create_location_sf
 #' @title match_names
@@ -180,24 +180,22 @@ create_location_sf <- function(location_name, thorough = FALSE){
 telescoping_standardize <- function(
   location_name,
   max_jump_depth = NA,
-  dbname = default_database_filename(),
-  db="GAUL"
+  dbname = default_database_filename()
   ## metadata = ??
 ){
-  
   original_name <- location_name
   location_name_std <- standardize_location_strings(location_name)
-  
+
   # reduce to only unique names for speed
   location_name <- unique(location_name_std)
-  
+
   location_sf <- create_location_sf(location_name, thorough = TRUE)
   all_names <- list()
-  for(level in sort(unique(location_sf$ISO_A2_level))){
+  for (level in sort(unique(location_sf$ISO_A2_level))){
     tmp_location_sf <- location_sf[location_sf[["ISO_A2_level"]] == level, ]
     counter <- 1
     tmp_location_sf$standardized_source <- as.character(NA)
-    while(
+    while (
       (level > counter) &
       (any(is.na(tmp_location_sf$standardized_source)))
     ){
@@ -208,20 +206,19 @@ telescoping_standardize <- function(
         ]
       counter <- counter + 1
     }
-    for(scope in unique(tmp_location_sf$standardized_source)){
-      if(is.na(scope)){
+    for (scope in unique(tmp_location_sf$standardized_source)){
+      if (is.na(scope)){
         tmp_location_sf_idx <- is.na(tmp_location_sf$standardized_source)
         nonstandard_names <- unique(
           tmp_location_sf$location_name[tmp_location_sf_idx]
         )
-        
+
         # Standardize the name
         standard_names <- standardize_name(
-          location = gsub('.*:', '', nonstandard_names),
+          location = gsub(".*:", "", nonstandard_names),
           scope = "",
           depth = max_jump_depth,
           dbname = dbname,
-          db=db
           ## metadata = metadata
         )
      } else {
@@ -229,17 +226,16 @@ telescoping_standardize <- function(
           (!is.na(tmp_location_sf$standardized_source)) &
           (tmp_location_sf$standardized_source == scope)
         ])
-        
+
         # Standardize the name
         standard_names <- standardize_name(
           gsub('.*:', '', nonstandard_names),
           scope = scope,
           depth = max_jump_depth,
           dbname = dbname,
-          db=db
         )
      }
-      
+
       names <- stats::setNames(standard_names, nonstandard_names)
       if(level <= length(all_names)){
         all_names[[level]] <- c(all_names[[level]], names)

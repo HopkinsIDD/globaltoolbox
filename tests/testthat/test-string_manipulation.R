@@ -65,7 +65,7 @@ test_that("standardize string", {
   expect_equal({
       standardize_string("φάντασμα")
   },
-  list("fantasma")
+  list("phantasma")
   )
 
   expect_equal({
@@ -83,6 +83,6 @@ test_that("standardize string", {
   expect_equal({
       standardize_string("شبح")
   },
-  list("shabh")
+  list("shbh")
   )
 })

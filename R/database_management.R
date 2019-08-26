@@ -1,4 +1,5 @@
 #' @include string_manipulation.R
+
 #' @name default_database_filename
 #' @title default_database_filename
 #' @description Return the filename of the default database
@@ -169,12 +170,12 @@ create_database <- function(dbname = default_database_filename()){
   })
   ## Populate with a root
   RSQLite::dbDisconnect(con)
-  try({
+  suppressWarnings(try({
     loc_id <- database_add_location("", "", NULL, dbname)
     database_add_hierarchy(loc_id, loc_id, 0, dbname = dbname)
     database_add_location_alias(loc_id, "", dbname = dbname)
   },
-  silent = T)
+  silent = T))
   return()
 }
 
@@ -388,7 +389,6 @@ database_merge_locations <- function(
     table_name <- all_iterations$table_name[it]
     link_field <- all_iterations$link_field[it]
     location_field <- all_iterations$location_field[it]
-    location_id <- all_iterations$location_id[it]
     tryCatch({
       DBI::dbClearResult(DBI::dbSendQuery(
         con,
@@ -403,7 +403,20 @@ database_merge_locations <- function(
       RSQLite::dbDisconnect(con)
       stop(e$message)
     })
+    table_name <- "locations"
+    location_field <- "id"
+    tryCatch({
+      DBI::dbClearResult(DBI::dbSendQuery(
+        con,
+        glue::glue_sql(.con = con, drop_query)
+      ))
+    },
+    error = function(e){
+      RSQLite::dbDisconnect(con)
+      stop(e$message)
+    })
   }
+
   RSQLite::dbDisconnect(con)
   return()
 }

@@ -11,38 +11,21 @@ standardize_string <- function(string){
   string <- as.character(string)
   string <- strsplit(string, '|', fixed = TRUE)
   string <- lapply(string, function(x){
+    return(
+      stringi::stri_trans_general(
+        stringi::stri_trans_general(
+          stringi::stri_trans_general(x,"Any-Latn"),
+          "Latin-ASCII"
+        ),
+        "Any-Lower"
+      )
+    )
+  })
+  string <- lapply(string, function(x){
       gsub(' ', '', x)
   })
   string <- lapply(string, function(x){
-    if(length(x) == 0){
-      return(x)
-    }
-    for(i in 1:length(x)){
-      if(Encoding(x[i]) != 'unknown'){
-        x[i] <- iconv(from = Encoding(x[i]), to = 'ASCII//TRANSLIT', x[i])
-      } else {
-          for(encoding in ranked_encodings){
-              if(!is.na(x[i])){
-                  next
-              }
-              y <- iconv(
-                  from = encoding,
-                  to = 'ASCII//TRANSLIT',
-                  x[i]
-              )
-              if(!is.na(y)){
-                  x[i] <- y
-              }
-          }
-      }
-    }
-    return(x)
-  })
-  string <- lapply(string, function(x){
       gsub('[[:punct:]]', '', x)
-  })
-  string <- lapply(string, function(x){
-      tolower(x)
   })
   string[sapply(string, length) == 0] <- ''
   return(string)
