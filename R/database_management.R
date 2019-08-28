@@ -156,7 +156,7 @@ create_database <- function(dbname = default_database_filename()){
     DBI::dbSendQuery(
       con,
       "CREATE TABLE IF NOT EXISTS location_aliases(
-         alias text,
+         alias text NOT NULL,
          location_id integer NOT NULL,
          PRIMARY KEY(alias,location_id)
          FOREIGN KEY(location_id) REFERENCES locations(id)
