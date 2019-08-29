@@ -204,10 +204,10 @@ match_names <- function(name_a, names_b_data,
     if (sum(exact_match)==1){
 
       if (return_match_scores){
-        return(list(best = setNames(names_b_data$id[exact_match], names_b_data$name[exact_match]),
+        return(list(best = setNames(names_b_data$id[exact_match], rep(name_a,times=nrow(names_b_data))),
                     match_scores = NA))
       } else {
-        return(setNames(names_b_data$id[exact_match], names_b_data$name[exact_match]))
+        return(setNames(names_b_data$id[exact_match], name_a))
       }
 
     ## if  more than 1 best match, return the number of matches and the description data
@@ -298,7 +298,7 @@ match_names <- function(name_a, names_b_data,
     ## if only 1 best, replace best_ with ID
     if (length(best_)==1){
       best_match <- dists$id[best_]
-      best_match <- stats::setNames(best_match, dists$name[best_])
+      best_match <- stats::setNames(best_match, name_a)
 
       if (!return_match_scores){
         return(best_match)
@@ -322,14 +322,14 @@ match_names <- function(name_a, names_b_data,
       if (nrow(dists_best) > 1){
         message(paste(name_a,"has",nrow(dists_best),"best matches.  Ignoring them."))
         if (return_match_scores){
-          return(list(best = setNames(as.integer(NA), names_b_data$name[exact_match]),
+          return(list(best = setNames(as.integer(NA), name_a),
                       match_scores = names_b_data[exact_match,]))
         } else {
-          return(setNames(as.integer(NA), names_b_data$name[exact_match]))
+          return(setNames(as.integer(NA), name_a))
         }
       } else {
         best_match <- dists_best$id
-        best_match <- stats::setNames(best_match, dists_best$name)
+        best_match <- stats::setNames(best_match, name_a)
 
         if (!return_match_scores){
           return(best_match)

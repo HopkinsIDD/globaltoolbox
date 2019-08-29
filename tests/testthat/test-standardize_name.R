@@ -93,7 +93,7 @@ test_that("match_name", {
       clean_b = FALSE
     )
   },
-  setNames(7, "tanzania")
+  setNames(7, "taznania")
   )
 
   expect_equal({
@@ -117,6 +117,6 @@ test_that("match_name", {
       clean_b = FALSE
     )
   },
-  setNames(12, "phiction")
+  setNames(12, "ficshun")
   )
 })
