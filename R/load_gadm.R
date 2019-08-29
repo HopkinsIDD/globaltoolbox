@@ -46,7 +46,11 @@ load_country_aliases <- function(dbname = default_database_filename()){
         id <- database_add_descendant_id(
           readable_descendant_id_name = name,
           standardized_parent_name = "",
-          metadata = list(source_name = "globaltoolbox"),
+            metadata = list(
+              import_type = "load_country_aliases",
+              level = 0,
+              source_name = "globaltoolbox"
+            ),
           dbname = dbname
         )
         non_na_column_found <- TRUE
@@ -232,7 +236,7 @@ load_hierarchical_sf <- function(
             readable_descendant_id_name = shp_name[[i]],
             metadata = list(
               import_type = "load_hierarchical_sf",
-              # level = level,
+              level = level - 1,
               source_name = source_name
             ),
             dbname = dbname
