@@ -1,4 +1,11 @@
 
+#' @export
+#' @name detect_subtree_match
+#' @title detect_subtree_match
+#' @description Determine if two locations have the same sublocations.
+#' @param lhs The first (standardized) location
+#' @param lhs The second (standardized) location
+#' @param dbname The name of the database
 detect_subtree_match <- function(lhs,rhs,dbname=default_database_filename()){
   lhs <- standardize_name(lhs,dbname=dbname)
   rhs <- standardize_name(rhs,dbname=dbname)
@@ -30,9 +37,16 @@ detect_subtree_match <- function(lhs,rhs,dbname=default_database_filename()){
   return(percent_match)
 }
 
+#' @export
+#' @name detect_all_subtree_matches
+#' @title detect_all_subtree_matches
+#' @description Determine if any locations have matching descendents
+#' @param lhs The first (standardized) location
+#' @param lhs The second (standardized) location
+#' @param dbname The name of the database
 detect_all_subtree_matches <- function(source = "", dbname = default_database_filename(),verbose=FALSE){
   all_locations <- get_location_metadata(source = source, aliases = FALSE, depth = 1, dbname = dbname)$name
-  matches <- data_frame(
+  matches <- tibble::tibble(
     lhs = character(0),
     rhs = character(0),
     match_rate = numeric(0)
