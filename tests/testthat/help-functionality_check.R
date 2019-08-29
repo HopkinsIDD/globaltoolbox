@@ -50,7 +50,7 @@ create_hierarchy <- function(){
     FUN = database_add_hierarchy,
     NAME = "add_hierarchy",
     parent_id = 1,
-    descendent_id = 2,
+    descendant_id = 2,
     depth = 1,
     dbname = tdbn
   )
@@ -58,7 +58,7 @@ create_hierarchy <- function(){
     FUN = database_add_hierarchy,
     NAME = "add_hierarchy",
     parent_id = 1,
-    descendent_id = 3,
+    descendant_id = 3,
     depth = 1,
     dbname = tdbn
   )
@@ -66,7 +66,7 @@ create_hierarchy <- function(){
     FUN = database_add_hierarchy,
     NAME = "add_hierarchy",
     parent_id = 1,
-    descendent_id = 4,
+    descendant_id = 4,
     depth = 2,
     dbname = tdbn
   )
@@ -74,7 +74,7 @@ create_hierarchy <- function(){
     FUN = database_add_hierarchy,
     NAME = "add_hierarchy",
     parent_id = 2,
-    descendent_id = 2,
+    descendant_id = 2,
     depth = 0,
     dbname = tdbn
   )
@@ -82,7 +82,7 @@ create_hierarchy <- function(){
     FUN = database_add_hierarchy,
     NAME = "add_hierarchy",
     parent_id = 3,
-    descendent_id = 3,
+    descendant_id = 3,
     depth = 0,
     dbname = tdbn
   )
@@ -90,7 +90,7 @@ create_hierarchy <- function(){
     FUN = database_add_hierarchy,
     NAME = "add_hierarchy",
     parent_id = 4,
-    descendent_id = 4,
+    descendant_id = 4,
     depth = 0,
     dbname = tdbn
   )
@@ -98,41 +98,41 @@ create_hierarchy <- function(){
     FUN = database_add_hierarchy,
     NAME = "add_hierarchy",
     parent_id = 2,
-    descendent_id = 4,
+    descendant_id = 4,
     depth = 1,
     dbname = tdbn
   )
 }
 create_test_database <- function(){
   attempt_fun(
-    FUN = database_add_descendent,
-    NAME = "add_descendent",
+    FUN = database_add_descendant_id,
+    NAME = "add_descendant_id",
     standardized_parent_name = "",
-    readable_descendent_name = "tst",
+    readable_descendant_id_name = "tst",
     metadata = list("test" = 1,"test3" = 1),
     dbname = tdbn
   )
   attempt_fun(
-    FUN = database_add_descendent,
-    NAME = "add_descendent",
+    FUN = database_add_descendant_id,
+    NAME = "add_descendant_id",
     standardized_parent_name = "",
-    readable_descendent_name = "tst2",
+    readable_descendant_id_name = "tst2",
     metadata = list("test" = 2, "test2"= 1),
     dbname = tdbn
   )
   attempt_fun(
-    FUN = database_add_descendent,
-    NAME = "add_descendent",
+    FUN = database_add_descendant_id,
+    NAME = "add_descendant_id",
     standardized_parent_name = "::tst",
-    readable_descendent_name = "tst3",
+    readable_descendant_id_name = "tst3",
     metadata = list("test" = 3),
     dbname = tdbn
   )
   attempt_fun(
-    FUN = database_add_descendent,
-    NAME = "add_descendent",
+    FUN = database_add_descendant_id,
+    NAME = "add_descendant_id",
     standardized_parent_name = "::tst2",
-    readable_descendent_name = "tst3",
+    readable_descendant_id_name = "tst3",
     metadata = list("test" = 3),
     dbname = tdbn
   )

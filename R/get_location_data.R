@@ -31,7 +31,7 @@ get_location_metadata <- function(
       LEFT JOIN
     location_hierarchy
       ON
-        locations.id = location_hierarchy.descendant_id_id
+        locations.id = location_hierarchy.descendant_id
     ) INNER JOIN
     location_aliases
       ON
@@ -64,6 +64,8 @@ get_location_metadata <- function(
   rc <- DBI::dbGetQuery(con, glue::glue_sql(.con = con, query))
   rc$depth_from_source <- rc$depth
   rc$depth <- NULL
+  rc$location_id <- NULL
+  rc$descendent_id <- NULL
   metadata.frame <- dplyr::bind_rows(
     lapply(rc$metadata, process_single_metadata_frame)
   )
@@ -131,7 +133,7 @@ get_all_aliases <- function(
       LEFT JOIN
     location_hierarchy
       ON
-        locations.id = location_hierarchy.descendant_id_id
+        locations.id = location_hierarchy.descendant_id
     ) INNER JOIN
     location_aliases
       ON
@@ -202,7 +204,7 @@ get_location_geometry <- function(
       LEFT JOIN
     location_hierarchy
       ON
-        locations.id = location_hierarchy.descendant_id_id
+        locations.id = location_hierarchy.descendant_id
     ) INNER JOIN
     location_geometries
       ON

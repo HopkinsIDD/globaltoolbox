@@ -32,42 +32,42 @@ database_add_descendant_id <- function(
     )
   }
 
-  descendant_id_id <- database_add_location(
+  descendant_id <- database_add_location(
     name = standardized_descendant_id_name,
     readable_name = readable_descendant_id_name,
     metadata = metadata,
     dbname = dbname
   )
   database_add_hierarchy(
-    descendant_id_id,
-    descendant_id_id,
+    descendant_id,
+    descendant_id,
     0,
     dbname = dbname
   )
   if (grepl(":", standardized_descendant_id_name)){
     database_add_location_alias(
-      location_id = descendant_id_id,
+      location_id = descendant_id,
       alias = gsub(".*:", "", standardized_descendant_id_name),
       dbname = dbname
     )
   }
   database_add_location_alias(
-    location_id = descendant_id_id,
+    location_id = descendant_id,
     alias = standardized_descendant_id_name,
     dbname = dbname
   )
   if (!is.null(standardized_parent_name)){
     ## Add all ancestors of parent as ancestors here
     query <- "INSERT INTO location_hierarchy
-          (parent_id,descendant_id_id, depth)
+          (parent_id,descendant_id, depth)
             SELECT
               parent_id,
-              {descendant_id_id} as descendant_id_id,
+              {descendant_id} as descendant_id,
               depth+1 as depth
             FROM
               location_hierarchy
             WHERE
-              descendant_id_id == {parent_id}"
+              descendant_id == {parent_id}"
     con <- DBI::dbConnect(drv = RSQLite::SQLite(), dbname)
     tryCatch({
       DBI::dbClearResult(
@@ -80,7 +80,7 @@ database_add_descendant_id <- function(
     })
     RSQLite::dbDisconnect(con)
   }
-  return(descendant_id_id)
+  return(descendant_id)
 }
 
 
@@ -112,7 +112,7 @@ database_standardize_name <- function(
       LEFT JOIN
     location_hierarchy
       ON
-        locations.id = location_hierarchy.descendant_id_id
+        locations.id = location_hierarchy.descendant_id
     ) INNER JOIN
     location_aliases
       ON
