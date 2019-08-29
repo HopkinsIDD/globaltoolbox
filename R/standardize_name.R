@@ -10,7 +10,7 @@
 #' @param metadata Additional data that may be useful to identify the location name
 #' @param dbname database name to pull location information from. Default pulls from the database included in the package.
 #' @param db_scoped inputted scoped database. This speeds it up when doing multiple matches.
-#' @param strict_scope
+#' @param strict_scope Logical, whether scope is strict.
 #' @param depth Depth in the tree to search, with country-level as depth=1.
 #' @param standardize_location Logical, whether location strings should be standardized. This is already done in `telescoping_standardize()`. Default is FALSE.
 #' @param return_match_score logical, whether to return the matching score. Score reported on 0-1 scale, with 1 being a perfect match.
@@ -356,7 +356,7 @@ match_names <- function(name_a, names_b_data,
 #' @param metadata Additional data that may be useful to identify the location name
 #' @param dbname database name to pull location information from. Default pulls from the database included in the package.
 #' @param db_scoped inputted scoped database. This speeds it up when doing multiple matches.
-#' @param strict_scope
+#' @param strict_scope Logical, whether scope is strict.
 #' @param depth Depth in the tree to search, with country-level as depth=1.
 #' @param standardize_location Logical, whether location strings should be standardized. This is already done in `telescoping_standardize()`. Default is FALSE.
 #' @param return_match_score logical, whether to return the matching score. Score reported on 0-1 scale, with 1 being a perfect match.
