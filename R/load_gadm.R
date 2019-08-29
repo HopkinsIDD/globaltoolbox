@@ -232,7 +232,7 @@ load_hierarchical_sf <- function(
             readable_descendant_id_name = shp_name[[i]],
             metadata = list(
               import_type = "load_hierarchical_sf",
-              level = level,
+              # level = level,
               source_name = source_name
             ),
             dbname = dbname
@@ -363,19 +363,19 @@ load_sf <- function(
     warning("This is not currently implemented")
   }
   add_query <- "INSERT INTO location_hierarchy
-    (parent_id, descendant_id_id,depth)
-    VALUES ({parent_id},{descendant_id_id},{depth})"
+    (parent_id, descendant_id,depth)
+    VALUES ({parent_id},{descendant_id},{depth})"
   update_query <- "UPDATE OR IGNORE location_hierarchy
     SET
       depth = depth + 1
     WHERE
-      descendant_id_id IN (
+      descendant_id IN (
       SELECT
-        descendant_id_id
+        descendant_id
       FROM
         location_hierarchy
       WHERE
-        parent_id = {descendant_id_id} AND
+        parent_id = {descendant_id} AND
         depth > 0
       )
     AND
@@ -385,7 +385,7 @@ load_sf <- function(
       FROM
         location_hierarchy
       WHERE
-        descendant_id_id = {descendant_id_id} AND
+        descendant_id = {descendant_id} AND
         depth > 0
       )"
 
@@ -419,7 +419,7 @@ load_sf <- function(
       warning("This implementation is fragile")
 
       ## try({
-      ## descendant_id_id <- database_add_descendant_id(
+      ## descendant_id <- database_add_descendant_id(
       ## dbname = dbname,
       ## metadata = metadata_frame[idx,],
       ## standardized_parent_name = tmp_sources$source,
@@ -427,7 +427,7 @@ load_sf <- function(
       ## )
       ##
       ## database_merge_locations(
-      ## descendant_id_id,
+      ## descendant_id,
       ## get_database_id_from_name(sources$source[idx]),
       ## dbname=dbname
       ## )})
@@ -442,7 +442,7 @@ load_sf <- function(
         check_aliases = FALSE
       )
         try({
-      descendant_id_id <- database_add_descendant_id(
+      descendant_id <- database_add_descendant_id(
         dbname = dbname,
         metadata = metadata_frame[idx,],
         standardized_parent_name = tmp_sources$source,
@@ -469,8 +469,8 @@ load_sf <- function(
         all_children <- actual_children$location_id
         ## Add hierarchy to each actual child.
         ## The depth is the depth from the parent to that child - 1
-        parent_id <- descendant_id_id
-        descendant_id_id <- all_children
+        parent_id <- descendant_id
+        descendant_id <- all_children
         depth <- actual_children$depth_from_source
 
         parent_id = parent_id[[1]]
@@ -686,7 +686,7 @@ load_gadm <- function(
         metadata_frame[, !(
           colnames(metadata_frame) %in% c("VALIDFR", "VALIDTO")
         )]
-      descendant_id_id <- database_add_descendant_id(
+      descendant_id <- database_add_descendant_id(
         dbname = dbname,
         metadata = metadata_frame,
         standardized_parent_name = "",
@@ -702,11 +702,11 @@ load_gadm <- function(
         if(grepl("^\n \r$", alias)){
           next
         }
-        location_id <- descendant_id_id
+        location_id <- descendant_id
         tryCatch({
           database_add_location_alias(
             dbname = dbname,
-            location_id = descendant_id_id,
+            location_id = descendant_id,
             alias = alias
           )
         },
@@ -816,7 +816,7 @@ load_gadm <- function(
               gsub(paste0('_', i, '$'), '', colnames(metadata_frame))
           }
           tryCatch({
-            descendant_id_id <- database_add_descendant_id(
+            descendant_id <- database_add_descendant_id(
               dbname = dbname,
               metadata = metadata_frame,
               standardized_parent_name = tmp_data$standardized_parent_name,
@@ -858,11 +858,11 @@ load_gadm <- function(
               alias <- strsplit(alias, '|', fixed = T)[[1]]
             }
             for(this_alias in alias){
-              location_id <- descendant_id_id
+              location_id <- descendant_id
               tryCatch({
                 database_add_location_alias(
                   dbname = dbname,
-                  location_id = descendant_id_id,
+                  location_id = descendant_id,
                   alias = this_alias
                 )
               },
