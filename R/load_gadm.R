@@ -141,6 +141,9 @@ load_hierarchical_sf <- function(
   error_messages <- c("")
   shp_files <- sf::st_read(filename, stringsAsFactors = FALSE)
   n_levels <- min(max_depth, length(hierarchy_column_names), na.rm = TRUE)
+  if(!is.na(log_file)){
+    message(paste("Logging to file",log_file))
+  }
   for (level in 1:n_levels){
     alias_columns <- alias_column_names[[level]]
     all_names <- tibble::as_tibble(shp_files)
@@ -314,7 +317,11 @@ load_hierarchical_sf <- function(
     }
     cat("\n")
     if(!is.na(log_file)){
-      stop("Not yet implemented")
+      sink(log_file,append=TRUE)
+      for(msg in error_messages){
+          print(msg)
+      }
+      sink()
     }
     for(msg in error_messages){
         message(msg)
@@ -507,7 +514,6 @@ find_geometry_source <- function(
   match_threshold = 1e-6,
   dbname = default_dtabase_filename()
 ){
-
   error_messages <- c('')
 
   sf_object$depth <- NA
