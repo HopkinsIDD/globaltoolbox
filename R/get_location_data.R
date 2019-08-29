@@ -31,7 +31,7 @@ get_location_metadata <- function(
       LEFT JOIN
     location_hierarchy
       ON
-        locations.id = location_hierarchy.descendent_id
+        locations.id = location_hierarchy.descendant_id_id
     ) INNER JOIN
     location_aliases
       ON
@@ -131,7 +131,7 @@ get_all_aliases <- function(
       LEFT JOIN
     location_hierarchy
       ON
-        locations.id = location_hierarchy.descendent_id
+        locations.id = location_hierarchy.descendant_id_id
     ) INNER JOIN
     location_aliases
       ON
@@ -202,7 +202,7 @@ get_location_geometry <- function(
       LEFT JOIN
     location_hierarchy
       ON
-        locations.id = location_hierarchy.descendent_id
+        locations.id = location_hierarchy.descendant_id_id
     ) INNER JOIN
     location_geometries
       ON

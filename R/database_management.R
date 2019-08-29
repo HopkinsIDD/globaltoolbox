@@ -67,7 +67,7 @@ create_database <- function(dbname = default_database_filename()){
   ## | Name          | Type    | Description                                         | Constraints                                   |
   ## |---------------|---------|-----------------------------------------------------|-----------------------------------------------|
   ## | parent_id     | integer | The id of the parent of this part of the tree       | NOT NULL FOREIGN KEY REFERENCES locations(id) |
-  ## | descendent_id | integer | The id of the descendent of this part of the tree   | NOT NULL FOREIGN KEY REFERENCES locations(id) |
+  ## | descendant_id_id | integer | The id of the descendant_id of this part of the tree   | NOT NULL FOREIGN KEY REFERENCES locations(id) |
   ## | depth         | integer | How many tree nodes are in the path connecting them | NOT NULL                                      |
   ## nolint end
 
@@ -76,11 +76,11 @@ create_database <- function(dbname = default_database_filename()){
       con,
       "CREATE TABLE IF NOT EXISTS location_hierarchy(
          parent_id integer NOT NULL,
-         descendent_id integer NOT NULL,
+         descendant_id_id integer NOT NULL,
          depth integer NOT NULL,
-         PRIMARY KEY(parent_id,descendent_id)
+         PRIMARY KEY(parent_id,descendant_id_id)
          FOREIGN KEY(parent_id) REFERENCES locations(id),
-         FOREIGN KEY(descendent_id) REFERENCES locations(id)
+         FOREIGN KEY(descendant_id_id) REFERENCES locations(id)
        );"
     )
   )
@@ -183,7 +183,7 @@ create_database <- function(dbname = default_database_filename()){
 
 #' @name database_add_location
 #' @title database_add_location
-#' @description Wrapper for the sql code to create a location.  This function should not be called directly in most circumstances.  See database_add_descendent and database_add_alias instead.
+#' @description Wrapper for the sql code to create a location.  This function should not be called directly in most circumstances.  See database_add_descendant_id and database_add_alias instead.
 #' @param name location name to add
 #' @param readable_name common readable name for the location
 #' @param metadata Additional data that may be useful to identify the location name.
@@ -225,19 +225,19 @@ database_add_location <- function(
 
 #' @name database_add_location_hierarchy
 #' @title database_add_location_hierarchy
-#' @description Wrapper for the sql code to create a relationship in the location hierarchy.  This function should not be called directly in most circumstances.  See database_add_descendent and database_add_alias instead.
+#' @description Wrapper for the sql code to create a relationship in the location hierarchy.  This function should not be called directly in most circumstances.  See database_add_descendant_id and database_add_alias instead.
 #' @param parent_id The id of the parent in the relationship.  The id is with respect to the locations table in the database
-#' @param descendent_id The id of the descendent in the relationship.  The id is with respect to the locations table in the database
-#' @param depth The distance between the parent and the descendent along the tree.  Should be one more than the number of intermediate locations between the parent and child.
+#' @param descendant_id_id The id of the descendant_id in the relationship.  The id is with respect to the locations table in the database
+#' @param depth The distance between the parent and the descendant_id along the tree.  Should be one more than the number of intermediate locations between the parent and child.
 #' @param dbname database name to put location information.
 database_add_hierarchy <- function(
   parent_id,
-  descendent_id,
+  descendant_id_id,
   depth, dbname = default_database_filename()
 ){
   query <- "INSERT INTO location_hierarchy
-      (parent_id, descendent_id,depth)
-    VALUES ({parent_id},{descendent_id},{depth})"
+      (parent_id, descendant_id_id,depth)
+    VALUES ({parent_id},{descendant_id_id},{depth})"
   con <- DBI::dbConnect(drv = RSQLite::SQLite(), dbname)
   tryCatch({
     DBI::dbClearResult(DBI::dbSendQuery(con, glue::glue_sql(.con = con, query)))
@@ -380,8 +380,8 @@ database_merge_locations <- function(
 
   all_iterations <- tibble::tibble(
     table_name = c(    "location_aliases", "location_hierarchy", "location_hierarchy", "location_geometries"),
-    link_field = c(    "alias",            "parent_id",          "descendent_id",      "id"),
-    location_field = c("location_id",      "descendent_id",      "parent_id",          "location_id"),
+    link_field = c(    "alias",            "parent_id",          "descendant_id_id",      "id"),
+    location_field = c("location_id",      "descendant_id_id",      "parent_id",          "location_id"),
   )
 
   for(it in 1:nrow(all_iterations)){
