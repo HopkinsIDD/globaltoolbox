@@ -212,12 +212,12 @@ match_names <- function(name_a, names_b_data,
 
     ## if  more than 1 best match, return the number of matches and the description data
     } else {
+      message(paste(name_a,"has",sum(exact_match),"exact matches.  Ignoring them."))
       if (return_match_scores){
-        return(list(best = setNames(names_b_data$id[exact_match], names_b_data$name[exact_match]),
+        return(list(best = setNames(as.integer(NA), name_a),
                     match_scores = names_b_data[exact_match,]))
       } else {
-        stop(paste0(sum(exact_match), " matches were found."))
-        # return(paste0("ERROR: ", sum(exact_match), " matches were found."))
+        return(setNames(as.integer(NA), name_a))
       }
     }
 
@@ -320,13 +320,12 @@ match_names <- function(name_a, names_b_data,
 
       ## if still more than 1 best match, return the number of matches or the distance matrix
       if (nrow(dists_best) > 1){
+        message(paste(name_a,"has",nrow(dists_best),"best matches.  Ignoring them."))
         if (return_match_scores){
-          stop(nrow(dists_best), "matches were found")
-          return(list(best = paste0("ERROR: ", nrow(dists_best), " matches were found.")),
-                 match_scores = dists_best[order(dists_best$score_sums), ][1:min(20, nrow(dists_best)),])
+          return(list(best = setNames(as.integer(NA), names_b_data$name[exact_match]),
+                      match_scores = names_b_data[exact_match,]))
         } else {
-          stop(paste0(nrow(dists_best), " matches were found."))
-          # return(paste0("ERROR: ", nrow(dists_best), " matches were found."))
+          return(setNames(as.integer(NA), names_b_data$name[exact_match]))
         }
       } else {
         best_match <- dists_best$id

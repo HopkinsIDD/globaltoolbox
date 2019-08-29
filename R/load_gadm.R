@@ -211,45 +211,49 @@ load_hierarchical_sf <- function(
       }
       if(is.na(tmp_name)){
         tmp_name <- paste(shp_source[[i]], shp_name[[i]], sep = "::")
-      }
-      suppressWarnings(try({
-        id <- globaltoolbox:::get_database_id_from_name(
-          tmp_name,
-          dbname = dbname
-        )
-      },
-      silent = TRUE
-      ))
-      tryCatch({
-        id <- database_add_descendent(
-          standardized_parent_name = shp_source[[i]],
-          readable_descendent_name = shp_name[[i]],
-          metadata = list(
-            import_type = "load_hierarchical_sf",
-            level = level,
-            source_name = source_name
-          ),
-          dbname = dbname
-        )
-      },
-      error = function(e){
-        if(is.na(id) || (!grepl('UNIQUE constraint failed', e$message))){
-          error_messages <<- c(
-            error_messages,
-            paste(
-              shp_source[[i]],
-              "had an error entering",
-              shp_name[[i]],
-              "located at",
-              i,
-              "/",
-              nrow(unique_names),
-              "with error",
-              e$message
-            )
+      } else {
+        tryCatch({
+          id <- globaltoolbox:::get_database_id_from_name(
+            tmp_name,
+            dbname = dbname
           )
-        }
-      })
+        },
+        error = function(e){
+          stop(paste("Could not find a database id for",tmp_name,"after standardizing"))
+        })
+      }
+      if(is.na(id)){
+        tryCatch({
+          id <- database_add_descendent(
+            standardized_parent_name = shp_source[[i]],
+            readable_descendent_name = shp_name[[i]],
+            metadata = list(
+              import_type = "load_hierarchical_sf",
+              level = level,
+              source_name = source_name
+            ),
+            dbname = dbname
+          )
+        },
+        error = function(e){
+          if((!grepl('UNIQUE constraint failed', e$message))){
+            error_messages <<- c(
+              error_messages,
+              paste(
+                shp_source[[i]],
+                "had an error entering",
+                shp_name[[i]],
+                "located at",
+                i,
+                "/",
+                nrow(unique_names),
+               "with error",
+                e$message
+              )
+            )
+          }
+        })
+      }
       for(alias in unique_aliases[i, ]){
         tryCatch({
           database_add_location_alias(
@@ -260,7 +264,6 @@ load_hierarchical_sf <- function(
         },
         error = function(e){
           if(!is.na(id) && (!grepl('UNIQUE constraint failed', e$message))){
-            message(e$message)
             error_messages <<- c(
               error_messages,
               paste(
