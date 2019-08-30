@@ -14,6 +14,7 @@ load_country_aliases <- function(dbname = default_database_filename()){
   countries <- read.csv(filename, stringsAsFactors = FALSE)[, -1]
   countries <- countries[,c(2:ncol(countries), 1)]
   for (row in 1:nrow(countries)){
+    cat(paste0("\r",row,'/',nrow(countries)))
     non_na_column_found <- FALSE
     id <- NA
     ## Check to see if the country is in the database:
@@ -57,6 +58,44 @@ load_country_aliases <- function(dbname = default_database_filename()){
       }
     }
   }
+  cat('\n')
+
+  filename <- system.file(
+    "extdata",
+    "iso31662_codes.csv",
+    package = "globaltoolbox"
+  )
+  countries <- read.csv(filename, stringsAsFactors = FALSE)
+  countries <- countries[,c("ISO3", "Name", "Code")]
+  countries$country_name <- telescoping_standardize(countries$ISO3,dbname=dbname,max_jump_depth=1)
+  for(i in 1:nrow(countries)){
+    cat(paste0("\r",i,'/',nrow(countries)))
+    this_loc = countries[i,]
+    found <- FALSE
+    suppressWarnings(try({
+      tmp_name <- database_standardize_name(standardize_string(this_loc$Name)[[1]], this_loc$country_name, TRUE, TRUE, 1, dbname)
+      found <- TRUE
+    },
+    silent = TRUE
+    ))
+    if(found){
+      id <- get_database_id_from_name(tmp_name,dbname=dbname)
+      message(paste(this_loc$Name,"matches",tmp_name))
+    } else {
+      id <- database_add_descendant_id(
+        readable_descendant_id_name = this_loc$Name,
+        standardized_parent_name = this_loc$country_name,
+          metadata = list(
+            import_type = "load_country_aliases",
+            level = 0,
+            source_name = "globaltoolbox"
+          ),
+        dbname = dbname
+      )
+    }
+    database_add_location_alias(location_id = id, alias = this_loc$Code, dbname = dbname)
+  }
+  cat('\n')
 }
 
 
@@ -150,6 +189,7 @@ load_hierarchical_sf <- function(
   }
   for (level in 1:n_levels){
     alias_columns <- alias_column_names[[level]]
+    alias_columns <- alias_columns[alias_columns %in% names(shp_files)]
     all_names <- tibble::as_tibble(shp_files)
     all_aliases <- all_names[, c(
       hierarchy_column_names[1:level],
@@ -180,6 +220,9 @@ load_hierarchical_sf <- function(
     unique_names <- unique_names[!missing_idx, ]
     unique_aliases <- unique_aliases[!missing_idx, ]
     shp_name <- shp_name[!missing_idx]
+    if(length(shp_name) == 0){
+      next
+    }
     shp_source <- rep("", nrow(unique_names))
     if (last_level > 0){
       shp_source <- unique_names[, 1:last_level]
@@ -262,6 +305,8 @@ load_hierarchical_sf <- function(
         })
       }
       for(alias in unique_aliases[i, ]){
+        if(is.na(alias)){next}
+        if(alias == ""){next}
         tryCatch({
           database_add_location_alias(
             dbname = dbname,
@@ -288,14 +333,14 @@ load_hierarchical_sf <- function(
       }
       if(geometry & (level == length(hierarchy_column_names))){
         tryCatch({
-            geometry <- shp_files[
+            this_geometry <- shp_files[
                 all_string_names == unique_string_names[[i]],
                 ]$geometry
           database_add_location_geometry(
             location_id = id,
             time_left = time_left,
             time_right = time_right,
-            geometry = geometry,
+            geometry = this_geometry,
             dbname = dbname
           )
         },
