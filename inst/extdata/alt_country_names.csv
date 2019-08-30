@@ -190,7 +190,6 @@
 167,"omn","Oman","Sultanate of Oman","","","","","",NA
 168,"pak","Pakistan","Islamic Republic of Pakistan","","","","","",NA
 169,"plw","Palau","Republic of Palau","","","","","",NA
-170,"pse","Palestinian Territory, Occupied","Occupied Palestinian Territory","","","","","",NA
 270,"","Palmyra Atoll","","","","","","",NA
 171,"pan","Panama","Republic of Panama","","","","","",NA
 172,"png","Papua New Guinea","Independent State of Papua New Guinea","","","","","",NA
@@ -276,7 +275,7 @@
 244,"vir","Virgin Islands, U.S.","United States Virgin Islands","Virgin Islands","Virgin Islands of the United States","Virgin Islands (US)","Virgin Islands (U.S.)","",NA
 275,"","Wake Atoll","","","","","","",NA
 245,"wlf","Wallis and Futuna","Wallis and Futuna Islands","Territory of the Wallis and Futuna Islands","","","","",NA
-276,"pse","West Bank","Palestine","West Bank and Gaza        ","","","","",NA
+276,"pse","Palestine", "West Bank","West Bank and Gaza","Palestinian Territory, Occupied","Occupied Palestinian Territory","","",NA
 246,"esh","Western Sahara","","","","","","",NA
 247,"yem","Yemen","Republic of Yemen","Yemen, Rep.","","","","",NA
 248,"zmb","Zambia","Republic of Zambia","","","","","",NA
