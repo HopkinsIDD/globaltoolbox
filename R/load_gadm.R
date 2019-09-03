@@ -178,6 +178,7 @@ load_hierarchical_sf <- function(
   source_name,
   max_depth = NA,
   geometry = TRUE,
+  geometry_union = FALSE,
   log_file = as.character(NA),
   dbname = default_database_filename()
 ){
@@ -331,11 +332,14 @@ load_hierarchical_sf <- function(
           }
         })
       }
-      if(geometry & (level == length(hierarchy_column_names))){
+      if(geometry & (geometry_union | (level == length(hierarchy_column_names)))){
         tryCatch({
             this_geometry <- shp_files[
                 all_string_names == unique_string_names[[i]],
                 ]$geometry
+          if(length(this_geometry) > 1){
+            this_geometry <- st_union(this_geometry)
+          }
           database_add_location_geometry(
             location_id = id,
             time_left = time_left,
