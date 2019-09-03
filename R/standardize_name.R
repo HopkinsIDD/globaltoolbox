@@ -225,9 +225,9 @@ match_names <- function(name_a, names_b_data,
   # If no exact match, do the string matching algorithms
   } else {
 
-    if ( (nchar(name_a) <= 3) & !return_match_scores){
+    if ( (nchar(name_a) <= 5) & !return_match_scores){
       return(setNames(as.integer(NA),name_a))
-    } else if ( (nchar(name_a) <= 3) & return_match_scores){
+    } else if ( (nchar(name_a) <= 5) & return_match_scores){
       return(list(best = setNames(as.integer(NA, name_a)),
         match_scores = rep(as.numeric(NA), times = min(20, nrow(dists)))
       ))
