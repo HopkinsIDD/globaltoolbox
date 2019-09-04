@@ -13,7 +13,7 @@
 #' @param strict_scope Logical, whether scope is strict.
 #' @param depth Depth in the tree to search, with country-level as depth=1.
 #' @param standardize_location Logical, whether location strings should be standardized. This is already done in `telescoping_standardize()`. Default is FALSE.
-#' @param return_match_score logical, whether to return the matching score. Score reported on 0-1 scale, with 1 being a perfect match.
+#' @param return_match_scores logical, whether to return the matching score. Score reported on 0-1 scale, with 1 being a perfect match.
 #' @return standardized database code which can be used to identify other data
 #' @import dplyr
 #' @export
@@ -26,7 +26,6 @@ standardize_name <- function(
   depth=NA,
   standardize_location=FALSE,
   standardize_db=FALSE,
-  return_match_scores=FALSE,
   ...
 ){
   original_location <- location
@@ -367,7 +366,7 @@ match_names <- function(name_a, names_b_data,
 #' @param strict_scope Logical, whether scope is strict.
 #' @param depth Depth in the tree to search, with country-level as depth=1.
 #' @param standardize_location Logical, whether location strings should be standardized. This is already done in `telescoping_standardize()`. Default is FALSE.
-#' @param return_match_score logical, whether to return the matching score. Score reported on 0-1 scale, with 1 being a perfect match.
+#' @param return_match_scores logical, whether to return the matching score. Score reported on 0-1 scale, with 1 being a perfect match.
 #' @return standardized database code which can be used to identify other data
 #' @import dplyr
 #' @export
@@ -422,7 +421,7 @@ get_match_distances <- function(
     match_dists <- list()
     for (m in 1:length(location)){
       match_dists[[location[m]]] <- dplyr::right_join(db_scoped %>% dplyr::select(name_full=name, id) %>% filter(!duplicated(id)),
-                                                      match_names(location[m], names_b_data = names_b_data, return_match_score = TRUE),
+                                                      match_names(location[m], names_b_data = names_b_data, return_match_scores = TRUE),
                                                       by=c("id"))
     }
     return(match_dists)
@@ -564,7 +563,7 @@ create_standardized_name <- function(name,
 #' where it is located
 #' @param metadata Additional data that may be useful to identify the location name
 #' @param database database to pull location information from. If NULL, it will pull from the database included in the package.
-#' @param return_match_score logical, whether to return the matching score. Score reported on 0-1 scale, with 1 being a perfect match.
+#' @param return_match_scores logical, whether to return the matching score. Score reported on 0-1 scale, with 1 being a perfect match.
 #' @return standardized database code which can be used to identify other data
 #' @import dplyr
 #' @export
@@ -624,7 +623,7 @@ standardize_name_local <- function(
 #' where it is located
 #' @param metadata Additional data that may be useful to identify the location name
 #' @param database database to pull location information from. If NULL, it will pull from the database included in the package.
-#' @param return_match_score logical, whether to return the matching score. Score reported on 0-1 scale, with 1 being a perfect match.
+#' @param return_match_scores logical, whether to return the matching score. Score reported on 0-1 scale, with 1 being a perfect match.
 #' @return standardized database code which can be used to identify other data
 #' @export
 get_common_name_local <- function(
