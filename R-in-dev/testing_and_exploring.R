@@ -54,9 +54,10 @@ db_df %>% filter(!is.na(alias_numeric) & source_name=="GADM")
 db_df %>% filter(name=="::kenya::baringo::805")
 
 # globaltoolbox (alias df)
-db_df %>% filter(!is.na(alias_numeric) & source_name=="globaltoolbox")
+View(db_df %>% filter(!is.na(alias_numeric) & source_name=="globaltoolbox"))
 # --> seem to all be previous ID numbers (but they are off by 1-2)
 db_df %>% filter(name=="::afghanistan")
+
 
 
 
@@ -104,5 +105,10 @@ db_samename <- db_samename[db_samename$readable_name %in% dup_readable_name, ]
 
 
 
+
+# look at "shkria" and "ashsharqiyah"
+
+View(db_df %>% filter(readable_name=="shrkia"))
+View(db_df %>% filter(readable_name=="ashsharqiyah"))
 
 

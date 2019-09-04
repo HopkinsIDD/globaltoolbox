@@ -26,7 +26,7 @@ standardize_name <- function(
   depth=NA,
   standardize_location=FALSE,
   standardize_db=FALSE,
-  return_match_score=FALSE,
+  return_match_scores=FALSE,
   ...
 ){
   original_location <- location
@@ -91,7 +91,7 @@ standardize_name <- function(
     matches_ <- sapply(location,
                        match_names,
                        names_b_data = names_b_data,
-                       return_match_score = FALSE)
+                       return_match_scores = FALSE)
 
     if (any(is.na(matches_))){
       ## Unstandardize things without a match
@@ -125,7 +125,7 @@ standardize_name <- function(
     matches_[is.na(matches_) & !is.na(location)] <- sapply(location[is.na(matches_) & !is.na(location)],
                                          match_names,
                                          names_b_data = names_b_data,
-                                         return_match_score = FALSE)
+                                         return_match_scores = FALSE)
   }
 
   # If no matches, try the Aliases
@@ -142,7 +142,7 @@ standardize_name <- function(
       matches_[is.na(matches_) & !is.na(location)] <- sapply(location[is.na(matches_) & !is.na(location)],
                                           match_names,
                                           names_b_data = names_b_data,
-                                          return_match_score = FALSE)
+                                          return_match_scores = FALSE)
   }
 
 
@@ -232,6 +232,7 @@ match_names <- function(name_a, names_b_data,
         match_scores = rep(as.numeric(NA), times = min(20, nrow(dists)))
       ))
     }
+    
     ## string matching methods
     ## Consider passing in methods as an argument?
     ##   lv      : Levenshtein distance - Minimal number of insertions, deletions and replacements needed for transforming string a into string b.
@@ -263,7 +264,13 @@ match_names <- function(name_a, names_b_data,
                         names_clean = names_b,
                         dists,
                         score_sums = rowSums(dists))
-
+    
+    # Check for numbers in name_a and require numbers in names_b
+    if (grepl("[0-9]", name_a)){
+      names_b_numeric <- grepl("[0-9]", names_b)
+      dists$score_sums <- dists$score_sums + ((!names_b_numeric) * 20)
+    }
+    
     if(!all(is.na(dists))){
       dists$score_sums_normalized <-
         1 - (dists$score_sums / max(dists$score_sums))
@@ -273,6 +280,8 @@ match_names <- function(name_a, names_b_data,
     dists$osa <- as.integer(dists$osa)
 
 
+    
+    
     ## get best match from results
     best_ <- NULL
     if (any(dists$osa <= 1)){
