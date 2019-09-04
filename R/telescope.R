@@ -174,12 +174,15 @@ create_location_sf <- function(location_name, thorough = FALSE){
 #' @description An expanded version of standardize_name that will attempt to validate all components of the location separately, and interpolate between them.
 #' @param location_name Location name(s) to generate shapefiles for.
 #' @param max_jump_depth Maximum distance between pieces of the location_names provided on the tree.  For example, to go from "A::D" to "::A::B::C::D" would require a jump of two nodes (B and C).
+#' @param collapse Whether to allow a locations separated by "::" to collapse into a single location if they match and no other matches are found
 #' @param dbname Filename of the database. Default will use the package-defined name.
 #' @return Standardized location names for each of location_name
 #' @export
 telescoping_standardize <- function(
   location_name,
   max_jump_depth = NA,
+  collapse = TRUE,
+  reconsider_source= TRUE,
   dbname = default_database_filename()
   ## metadata = ??
 ){
@@ -234,6 +237,25 @@ telescoping_standardize <- function(
           depth = max_jump_depth,
           dbname = dbname,
         )
+        if(collapse & any(is.na(standard_names))){
+          ## Check for mistakes
+          standard_names[is.na(standard_names)] <- standardize_name(
+            location = gsub(".*:","",nonstandard_names[is.na(standard_names)]),
+            scope = scope,
+            depth = max_jump_depth,
+            dbname = dbname,
+            strict_scope = FALSE
+          )
+        }
+        while(reconsider_source & any(is.na(standard_names)) & (scope != "")){
+          scope = gsub(":?:?[^:]*$","",scope)
+          standard_names[is.na(standard_names)] <- standardize_name(
+            gsub('.*:', '', nonstandard_names[is.na(standard_names)]),
+            scope = scope,
+            depth = max_jump_depth,
+            dbname = dbname,
+         )
+       }
      }
 
       names <- stats::setNames(standard_names, nonstandard_names)
