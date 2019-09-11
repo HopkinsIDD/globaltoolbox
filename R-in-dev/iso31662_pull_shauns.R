@@ -19,11 +19,6 @@ get_iso_country_codes <- function(country, port=4567L, chromever = "latest"){
   Sys.sleep(1) # Sleep to give it a chance to work
   remDr <- driver[["client"]]
   Sys.sleep(1)
-  
-  #Access Chrome driver
-  #RSelenium::startServer()
-  #startServer(javaargs="/users/name/folder/chromedriver") #path to where chromedriver is located on local hard (downloaded from: https://sites.google.com/a/chromium.org/chromedriver/downloads)
-  #remDr <- remoteDriver(browserName = "chrome") 
 
   remDr$open()
   Sys.sleep(1)
@@ -38,49 +33,6 @@ get_iso_country_codes <- function(country, port=4567L, chromever = "latest"){
   Sys.sleep(1)
   websrc <- webElem$getPageSource()[[1]] %>%
     xml2::read_html()
-  # rc <- websrc %>% 
-  #   xml2::xml_children() %>%
-  #   .[[2]] %>%
-  #   xml2::xml_children() %>%
-  #   .[[1]] %>% 
-  #   xml2::xml_children() %>%
-  #   .[[1]] %>% 
-  #   xml2::xml_children() %>%
-  #   .[[2]] %>% 
-  #   xml2::xml_children() %>%
-  #   .[[1]] %>% 
-  #   xml2::xml_children() %>%
-  #   .[[1]] %>% 
-  #   xml2::xml_children() %>%
-  #   .[[2]] %>% 
-  #   xml2::xml_children() %>%
-  #   .[[1]] %>% 
-  #   xml2::xml_children() %>%
-  #   .[[1]] %>%
-  #   xml2::xml_children() %>%
-  #   .[[2]] %>% 
-  #   xml2::xml_children() %>%
-  #   .[[1]] %>% 
-  #   xml2::xml_children() %>%
-  #   .[[1]] %>% 
-  #   xml2::xml_children() %>%
-  #   .[[1]] %>% 
-  #   xml2::xml_children() %>%
-  #   .[[1]] %>% 
-  #   xml2::xml_children() %>%
-  #   .[[2]] %>% 
-  #   xml2::xml_children() %>%
-  #   .[[1]] %>% 
-  #   xml2::xml_children() %>%
-  #   .[[2]] %>% 
-  #   xml2::xml_children() %>%
-  #   .[[1]] %>% 
-  #   xml2::xml_children() %>%
-  #   .[[1]] %>% 
-  #   xml2::xml_children() %>%
-  #   .[[5]] %>% 
-  #   xml2::xml_children() %>%
-  #   .[[7]]  
     
   rc <- websrc %>% rvest::html_table()
   rc <- rc[[3]] 
