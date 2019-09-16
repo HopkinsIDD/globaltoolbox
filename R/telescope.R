@@ -111,6 +111,8 @@ create_location_sf <- function(location_name, thorough = FALSE){
           }
         }
       }
+    } else {
+      message(paste("The location",original_location_name[arg_idx],"has incompatible pipes, and could not be processed"))
     }
   }
   ## We will use this for finding the shapefiles.
@@ -288,6 +290,10 @@ telescoping_standardize <- function(
     )
   )
   location_sf <- dplyr::ungroup(location_sf)
-  location_sf <- location_sf[match(location_name_std, location_name),] # match back to original data with duplicates
-  return(stats::setNames(location_sf$standardized_name, original_name))
+  rc <- stats::setNames(original_name,original_name)
+  rc[] <- as.character(NA)
+  rc[location_sf$arg_idx] <- location_sf$standardized_name
+  match_indices <- match(location_name_std, location_name)
+  location_sf$arg_idx[match_indices]
+  return(rc[match_indices])
 }
