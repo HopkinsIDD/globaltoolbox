@@ -294,6 +294,6 @@ telescoping_standardize <- function(
   rc[] <- as.character(NA)
   rc[location_sf$arg_idx] <- location_sf$standardized_name
   match_indices <- match(location_name_std, location_name)
-  location_sf$arg_idx[match_indices]
+  rc <- setNames(rc[match_indices],original_name)
   return(rc[match_indices])
 }
