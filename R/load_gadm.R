@@ -44,8 +44,8 @@ load_country_aliases <- function(dbname = default_database_filename()){
         if(found){
           stop(paste(name,"matches",tmp_name))
         }
-        id <- database_add_descendant_id(
-          readable_descendant_id_name = name,
+        id <- database_add_descendant(
+          readable_descendant_name = name,
           standardized_parent_name = "",
             metadata = list(
               import_type = "load_country_aliases",
@@ -82,8 +82,8 @@ load_country_aliases <- function(dbname = default_database_filename()){
       id <- get_database_id_from_name(tmp_name,dbname=dbname)
       message(paste(this_loc$Name,"matches",tmp_name))
     } else {
-      id <- database_add_descendant_id(
-        readable_descendant_id_name = this_loc$Name,
+      id <- database_add_descendant(
+        readable_descendant_name = this_loc$Name,
         standardized_parent_name = this_loc$country_name,
           metadata = list(
             import_type = "load_country_aliases",
@@ -275,9 +275,9 @@ load_hierarchical_sf <- function(
       }
       if(is.na(id)){
         tryCatch({
-          id <- database_add_descendant_id(
+          id <- database_add_descendant(
             standardized_parent_name = shp_source[[i]],
-            readable_descendant_id_name = shp_name[[i]],
+            readable_descendant_name = shp_name[[i]],
             metadata = list(
               import_type = "load_hierarchical_sf",
               level = level - 1,
@@ -472,11 +472,11 @@ load_sf <- function(
       warning("This implementation is fragile")
 
       ## try({
-      ## descendant_id <- database_add_descendant_id(
+      ## descendant_id <- database_add_descendant(
       ## dbname = dbname,
       ## metadata = metadata_frame[idx,],
       ## standardized_parent_name = tmp_sources$source,
-      ## readable_descendant_id_name = sf_object[[name_column]][idx]
+      ## readable_descendant_name = sf_object[[name_column]][idx]
       ## )
       ##
       ## database_merge_locations(
@@ -495,11 +495,11 @@ load_sf <- function(
         check_aliases = FALSE
       )
         try({
-      descendant_id <- database_add_descendant_id(
+      descendant_id <- database_add_descendant(
         dbname = dbname,
         metadata = metadata_frame[idx,],
         standardized_parent_name = tmp_sources$source,
-        readable_descendant_id_name = sf_object[[name_column]][idx]
+        readable_descendant_name = sf_object[[name_column]][idx]
       )
       potential_children <- get_location_geometry(source=tmp_sources$source)
       if(nrow(potential_children) == 0){
@@ -739,11 +739,11 @@ load_gadm <- function(
         metadata_frame[, !(
           colnames(metadata_frame) %in% c("VALIDFR", "VALIDTO")
         )]
-      descendant_id <- database_add_descendant_id(
+      descendant_id <- database_add_descendant(
         dbname = dbname,
         metadata = metadata_frame,
         standardized_parent_name = "",
-        readable_descendant_id_name = country_data$ISO
+        readable_descendant_name = country_data$ISO
       )
       for(alias_idx in
           c(
@@ -765,7 +765,7 @@ load_gadm <- function(
         },
         error = function(e){
           if(!(
-            grepl("UNIQUE constraint failed", e$message)
+            grepl("duplicate key value violates unique constraint", e$message)
           )){
             stop(paste(
               "The only way creating an alias should fail is",
@@ -869,11 +869,11 @@ load_gadm <- function(
               gsub(paste0('_', i, '$'), '', colnames(metadata_frame))
           }
           tryCatch({
-            descendant_id <- database_add_descendant_id(
+            descendant_id <- database_add_descendant(
               dbname = dbname,
               metadata = metadata_frame,
               standardized_parent_name = tmp_data$standardized_parent_name,
-              readable_descendant_id_name =
+              readable_descendant_name =
                 tmp_data[[paste('NAME', ISO_level, sep = '_')]]
             )
           },
@@ -921,12 +921,14 @@ load_gadm <- function(
               },
               error = function(e){
                 if(!(
-                  grepl("UNIQUE constraint failed", e$message)
+                  grepl("duplicate key value violates unique constraint", e$message)
                 )){
-                  stop(
-                    "The only way creating an alias should fail is if",
-                    "the alias is already in the database"
-                  )
+                  stop(paste(
+                    "The only way creating an alias should fail is",
+                    "if the alias is already in the database,",
+                    "but it failed with message:",
+                    e$message
+                  ))
                 }
               })
             }

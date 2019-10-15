@@ -1,40 +1,43 @@
 #' @include database_management.R standardize_name.R
 
-#' @name database_add_descendant_id
-#' @title database_add_descendant_id
+#' @name database_add_descendant
+#' @title database_add_descendant
 #' @description Add a new location as a descendant_id of another location and update the location hierarchy.
-#' @param redable_descendant_id_name The human readable name of the location to add.
+#' @param redable_descendant_name The human readable name of the location to add.
 #' @param standardized_parent_name The standardized name of the parent of the location to add.
 #' @param metadata Any data the user wants associated with the location.  Should be in the form of a data.frame
 #' @param dbname The name of the database.  Defaults to the database associated with the package
 #' @export
-database_add_descendant_id <- function(
+database_add_descendant <- function(
   standardized_parent_name,
-  readable_descendant_id_name,
+  readable_descendant_name,
   metadata,
-  dbname=default_database_filename()
+  dbname=default_database_filename(),
+  ...
 ){
   ## Testing connection to fail fast
-  con <- DBI::dbConnect(drv = RSQLite::SQLite(), dbname)
+  con <- DBI::dbConnect(drv = RPostgres::Postgres(), dbname)
   RSQLite::dbDisconnect(con)
 
-  standardized_descendant_id_name <- create_standardized_name(
-    name = readable_descendant_id_name,
+  standardized_descendant_name <- create_standardized_name(
+    name = readable_descendant_name,
     parent = standardized_parent_name,
     check_aliases = FALSE,
-    dbname = dbname
+    dbname = dbname,
+    ...
   )
 
   if (!is.null(standardized_parent_name)){
     parent_id <- get_database_id_from_name(
       name = standardized_parent_name,
-      dbname = dbname
+      dbname = dbname,
+      ...
     )
   }
 
   descendant_id <- database_add_location(
-    name = standardized_descendant_id_name,
-    readable_name = readable_descendant_id_name,
+    name = standardized_descendant_name,
+    readable_name = readable_descendant_name,
     metadata = metadata,
     dbname = dbname
   )
@@ -44,16 +47,16 @@ database_add_descendant_id <- function(
     0,
     dbname = dbname
   )
-  if (grepl(":", standardized_descendant_id_name)){
+  if (grepl(":", standardized_descendant_name)){
     database_add_location_alias(
       location_id = descendant_id,
-      alias = gsub(".*:", "", standardized_descendant_id_name),
+      alias = gsub(".*:", "", standardized_descendant_name),
       dbname = dbname
     )
   }
   database_add_location_alias(
     location_id = descendant_id,
-    alias = standardized_descendant_id_name,
+    alias = standardized_descendant_name,
     dbname = dbname
   )
   if (!is.null(standardized_parent_name)){
@@ -67,8 +70,8 @@ database_add_descendant_id <- function(
             FROM
               location_hierarchy
             WHERE
-              descendant_id == {parent_id}"
-    con <- DBI::dbConnect(drv = RSQLite::SQLite(), dbname)
+              descendant_id = {parent_id}"
+    con <- DBI::dbConnect(drv = RPostgres::Postgres(), dbname)
     tryCatch({
       DBI::dbClearResult(
         DBI::dbSendQuery(con, glue::glue_sql(.con = con, query))
@@ -102,7 +105,7 @@ database_standardize_name <- function(
   dbname = default_database_filename()
 ){
   ## Testing the connection to fail fast
-  con <- DBI::dbConnect(drv = RSQLite::SQLite(), dbname)
+  con <- DBI::dbConnect(drv = RPostgres::Postgres(), dbname)
   RSQLite::dbDisconnect(con)
 
   query <- "SELECT
@@ -118,9 +121,9 @@ database_standardize_name <- function(
       ON
       locations.id = location_aliases.location_id
     WHERE
-      alias is {name}"
+      alias = {name}"
   if(!aliases){
-    query <- paste(query, 'AND alias is name')
+    query <- paste(query, 'AND alias = name')
   }
   if(is.null(source)){
     query <- paste(query, 'AND depth = 0')
@@ -141,7 +144,7 @@ database_standardize_name <- function(
     }
   }
 
-  con <- DBI::dbConnect(drv = RSQLite::SQLite(), dbname)
+  con <- DBI::dbConnect(drv = RPostgres::Postgres(), dbname)
   tryCatch({
     rc <- DBI::dbGetQuery(con, glue::glue_sql(.con = con, query))
   },

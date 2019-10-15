@@ -1,6 +1,6 @@
 # Startup
-tdbn <- "testdatabase.sqlite"
-fdbn <- "fakedatabase.sqlite"
+tdbn <- "testdatabase"
+fdbn <- "fakedatabase"
 attempt_fun <- function(FUN, NAME, ...){
   tryCatch(
     FUN(...),
@@ -10,6 +10,7 @@ attempt_fun <- function(FUN, NAME, ...){
   )
 }
 initialize_database <-  function(){
+  attempt_fun(create_database, "create_database", dbname = tdbn)
   attempt_fun(reset_database, "reset_database", dbname = tdbn)
   attempt_fun(create_database, "create_database", dbname = tdbn)
 }

@@ -20,9 +20,7 @@ test_that("default_database_filename", {
 test_that("Database Reset",{
   expect_error(create_database(tdbn), NA)
   expect_error(reset_database(tdbn), NA)
-  expect_equal(file.exists(tdbn), TRUE)
   expect_error(reset_database(tdbn), NA)
-  expect_equal(file.exists(tdbn), TRUE)
 })
 
 test_that("Database Creation", {
@@ -38,7 +36,8 @@ test_that("Add Location", {
       name = "TST",
       readable_name = "Test",
       metadata = list("test" = 1),
-      tdbn)
+      dbname = tdbn
+    )
   },
   NA
   )
@@ -47,7 +46,8 @@ test_that("Add Location", {
       name = "TST2",
       readable_name = "Test",
       metadata = list("test" = 1, test2 = "foo"),
-      tdbn)
+      dbname = tdbn
+    )
   },
   NA
   )
@@ -56,7 +56,7 @@ test_that("Add Location", {
       name = "TST3",
       readable_name = "Test",
       metadata = list("test" = "John's Data"),
-      tdbn
+      dbname = tdbn
     )
   },
   NA
@@ -66,16 +66,18 @@ test_that("Add Location", {
     database_add_location(
       name = "TST",
       readable_name = "Test",
-      metadata = list("test" = 1)
+      metadata = list("test" = 1),
+      dbname = tdbn
     )
   }
   )
   # Can't have standard location with no metadata
   expect_error({
     database_add_location(
-      name = 'TST',
+      name = 'TST4',
       readable_name='Test',
-      metadata = NULL
+      metadata = NULL,
+      dbname = tdbn
     )
   })
 
@@ -84,9 +86,9 @@ test_that("Add Location", {
   initialize_database()
   expect_error({
       database_add_location(
-          name = "TST",
-          readable_name = "Test",
-          metadata = list("test" = 1),
+         name = "TST",
+         readable_name = "Test",
+         metadata = list("test" = 1),
          dbname = tdbn
       )
   },
@@ -100,18 +102,18 @@ test_that("Add Location", {
 test_that("Add Hierarchy", {
   initialize_database()
   create_locations()
-  expect_error(database_add_hierarchy(1, 3, 1, tdbn), NA)
-  expect_error(database_add_hierarchy(1, 3, 1, tdbn))
+  expect_error(database_add_hierarchy(1, 3, 1, dbname = tdbn), NA)
+  expect_error(database_add_hierarchy(1, 3, 1, dbname = tdbn))
 })
 
 test_that("Add Alias", {
   initialize_database()
   create_locations()
-  expect_error(database_add_location_alias(1, "Alias", tdbn), NA)
-  expect_error(database_add_location_alias(1, "Alias", tdbn))
-  expect_error(database_add_location_alias(1, "Test", tdbn), NA)
-  expect_error(database_add_location_alias(1, "Test", tdbn))
-  expect_error(database_add_location_alias(3, "Alias", tdbn), NA)
+  expect_error(database_add_location_alias(1, "Alias", dbname = tdbn), NA)
+  expect_error(database_add_location_alias(1, "Alias", dbname = tdbn))
+  expect_error(database_add_location_alias(1, "Test", dbname = tdbn), NA)
+  expect_error(database_add_location_alias(1, "Test", dbname = tdbn))
+  expect_error(database_add_location_alias(3, "Alias", dbname = tdbn), NA)
 })
 
 test_that("Add Geometry", {
@@ -128,7 +130,7 @@ test_that("Add Geometry", {
       lubridate::now() - lubridate::years(1),
       lubridate::now(),
       st_sfc(st_point(c(0, 1))),
-      tdbn
+      dbname = tdbn
     )
   },
   NA
@@ -139,7 +141,7 @@ test_that("Add Geometry", {
       lubridate::now() - lubridate::years(1),
       lubridate::now(),
       st_sfc(st_point(c(1, 1))),
-      tdbn
+      dbname = tdbn
     )
   })
   expect_error({
@@ -148,7 +150,7 @@ test_that("Add Geometry", {
       lubridate::now(),
       lubridate::now() + lubridate::years(1),
       st_sfc(st_point(c(1, 1))),
-      tdbn
+      dbname = tdbn
     )
   },
   NA
@@ -159,7 +161,7 @@ test_that("Add Geometry", {
       lubridate::now() - lubridate::years(1),
       lubridate::now() + lubridate::years(1),
       st_sfc(st_point(c(1, 1))),
-      tdbn
+      dbname = tdbn
     )
   })
   expect_error({
@@ -168,7 +170,7 @@ test_that("Add Geometry", {
         lubridate::now() - lubridate::years(1),
         lubridate::now() + lubridate::years(1),
         st_sfc(st_point(c(1, 1))),
-        tdbn
+        dbname = tdbn
       )
     },
     NA

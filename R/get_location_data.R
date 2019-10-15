@@ -21,9 +21,10 @@ get_location_metadata <- function(
   aliases=TRUE,
   strict_scope=TRUE,
   depth=NA,
-  dbname = default_database_filename()
+  dbname = default_database_filename(),
+  ...
 ){
-  con <- DBI::dbConnect(drv = RSQLite::SQLite(), dbname)
+  con <- DBI::dbConnect(drv = RPostgres::Postgres(), dbname)
   query <- "SELECT
     *
   FROM
@@ -50,7 +51,7 @@ get_location_metadata <- function(
     parent_id <- as.numeric(source)
     if(is.na(parent_id)){
       parent_id <-
-        globaltoolbox::get_database_id_from_name(name = source, dbname = dbname)
+        globaltoolbox::get_database_id_from_name(name = source, dbname = dbname,...)
     }
     query <- paste(query, 'AND parent_id = {parent_id}')
     if(strict_scope){
@@ -118,9 +119,10 @@ get_all_aliases <- function(
   source="",
   strict_scope=TRUE,
   depth=NA,
-  dbname = default_database_filename()
+  dbname = default_database_filename(),
+  ...
 ){
-  con <- DBI::dbConnect(drv = RSQLite::SQLite(), dbname)
+  con <- DBI::dbConnect(drv = RPostgres::Postgres(), dbname)
   query <- "SELECT
     name,
     alias,
@@ -150,7 +152,8 @@ get_all_aliases <- function(
     } else {
       parent_id <- globaltoolbox::get_database_id_from_name(
         name = source,
-        dbname = dbname
+        dbname = dbname,
+        ...
       )
     }
     query <- paste(query, "AND parent_id = {parent_id}")
@@ -161,7 +164,7 @@ get_all_aliases <- function(
       query <- paste(query, 'AND depth <= {depth}')
     }
   }
-  query <- paste(query, "GROUP BY name,alias,location_id")
+  query <- paste(query, "GROUP BY name,alias,readable_name,location_id,metadata")
   rc <- DBI::dbGetQuery(con, glue::glue_sql(.con = con, query))
   
   RSQLite::dbDisconnect(con)
@@ -188,9 +191,10 @@ get_location_geometry <- function(
   depth=NA,
   time_left = NA,
   time_right = NA,
-  dbname = default_database_filename()
+  dbname = default_database_filename(),
+  ...
 ){
-  con <- DBI::dbConnect(drv = RSQLite::SQLite(), dbname)
+  con <- DBI::dbConnect(drv = RPostgres::Postgres(), dbname)
   query <- "SELECT
     locations.name,
     locations.id as location_id,
@@ -226,7 +230,7 @@ get_location_geometry <- function(
     parent_id <- as.numeric(source)
     if(is.na(parent_id)){
       parent_id <-
-        globaltoolbox::get_database_id_from_name(name = source, dbname = dbname)
+        globaltoolbox::get_database_id_from_name(name = source, dbname = dbname,...)
     }
     query <- paste(query, 'AND parent_id = {parent_id}')
     if(strict_scope){

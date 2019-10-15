@@ -6,6 +6,7 @@
 #' @return A filename as a character
 #' @export
 default_database_filename <- function(){
+  return("globaltoolbox")
   system.file("extdata", "globaltoolbox.sqlite", package = "globaltoolbox")
 }
 
@@ -16,12 +17,25 @@ default_database_filename <- function(){
 #' @description Setup the database for holding the location tree and shapefiles.
 #' @param dbname The name of the database to connect to
 #' @export
-reset_database <- function(dbname = default_database_filename()){
+reset_database <- function(dbname = default_database_filename(),...){
   ## Create Tables
-  if (file.exists(dbname)){
-    file.remove(dbname)
-  }
-  file.create(dbname)
+  # if (file.exists(dbname)){
+  #   file.remove(dbname)
+  # }
+  # file.create(dbname)
+  con <- DBI::dbConnect(drv = RPostgres::Postgres(), dbname = dbname,...)
+  suppressWarnings(DBI::dbClearResult(
+    DBI::dbSendQuery(con, "DROP TABLE IF EXISTS location_aliases;")
+  ))
+  suppressWarnings(DBI::dbClearResult(
+    DBI::dbSendQuery(con, "DROP TABLE IF EXISTS location_geometries;")
+  ))
+  suppressWarnings(DBI::dbClearResult(
+    DBI::dbSendQuery(con, "DROP TABLE IF EXISTS location_hierarchy;")
+  ))
+  suppressWarnings(DBI::dbClearResult(
+    DBI::dbSendQuery(con, "DROP TABLE IF EXISTS locations;")
+  ))
   return()
 }
 
@@ -31,15 +45,15 @@ reset_database <- function(dbname = default_database_filename()){
 #' @title create_database
 #' @description Setup the database for holding the location tree and shapefiles.
 #' @param dbname The name of the database to connect to
-#' @param ... Other parameters for RPostgreSQL::dbConnect
+#' @param ... Other parameters for RPostgres::dbConnect
 #' @export
-create_database <- function(dbname = default_database_filename()){
-  if (!file.exists(dbname)){
-    file.create(dbname)
-  }
+create_database <- function(dbname = default_database_filename(),...){
+  # if (!file.exists(dbname)){
+  #   file.create(dbname)
+  # }
   ## Create Tables
 
-  con <- DBI::dbConnect(drv = RSQLite::SQLite(), dbname)
+  con <- DBI::dbConnect(drv = RPostgres::Postgres(), dbname = dbname,...)
   tryCatch({
 
   ## nolint start
@@ -55,10 +69,10 @@ create_database <- function(dbname = default_database_filename()){
     DBI::dbSendQuery(
       con,
       "CREATE TABLE IF NOT EXISTS locations(
-         id INTEGER PRIMARY KEY,
+         id SERIAL PRIMARY KEY,
          name text UNIQUE NOT NULL,
          readable_name text NOT NULL,
-         metadata blob NOT NULL
+         metadata jsonb NOT NULL
        );"
     ))
 
@@ -78,7 +92,7 @@ create_database <- function(dbname = default_database_filename()){
          parent_id integer NOT NULL,
          descendant_id integer NOT NULL,
          depth integer NOT NULL,
-         PRIMARY KEY(parent_id,descendant_id)
+         PRIMARY KEY(parent_id,descendant_id),
          FOREIGN KEY(parent_id) REFERENCES locations(id),
          FOREIGN KEY(descendant_id) REFERENCES locations(id)
        );"
@@ -93,55 +107,57 @@ create_database <- function(dbname = default_database_filename()){
   ## | location_id | integer        | Which location this is a shapefile for                | NOT NULL FOREIGN KEY REFERENCES locations(id) |
   ## | time_left   | date           | The first time this shapefile represents the location | NOT NULL                                      |
   ## | time_right  | date           | The last time this shapefile represents the location  | NOT NULL                                      |
-  ## | geometry    | blob (geojson) | The geometry this row represents                      | NOT NULL                                      |
+  ## | geometry    | geometry       | The geometry this row represents                      | NOT NULL                                      |
   ## nolint end
   DBI::dbClearResult(
     DBI::dbSendQuery(
       con,
       "CREATE TABLE IF NOT EXISTS location_geometries(
-         id integer PRIMARY KEY,
+         id SERIAL PRIMARY KEY,
          location_id integer NOT NULL,
          time_left date NOT NULL,
          time_right date NOT NULL CHECK (time_left <= time_right),
-         geometry blob NOT NULL,
-         UNIQUE(location_id,time_left,time_right)
+         geometry geometry NOT NULL,
+         UNIQUE(location_id,time_left,time_right),
          FOREIGN KEY(location_id) REFERENCES locations(id)
        );"
     )
   )
-  DBI::dbClearResult(
-    DBI::dbSendQuery(
-      con,
-      "CREATE TRIGGER IF NOT EXISTS no_overlaps BEFORE INSERT
-       ON location_geometries
-       BEGIN
-         SELECT CASE
-         WHEN EXISTS(
-           SELECT location_id,time_left,time_right
-           FROM location_geometries as OLD
-           WHERE
-             OLD.location_id = NEW.location_id AND
-             OLD.time_left < NEW.time_right AND
-             OLD.time_right >= NEW.time_right
-         )
-         THEN
-           RAISE(ABORT, 'overlapping intervals')
-         END;
-         SELECT CASE
-         WHEN EXISTS(
-           SELECT location_id,time_left,time_right
-           FROM location_geometries as OLD
-           WHERE
-             OLD.location_id = NEW.location_id AND
-             OLD.time_left <= NEW.time_left AND
-             OLD.time_right > NEW.time_left
-         )
-         THEN
-           RAISE(ABORT, 'overlapping intervals')
-         END;
-       END"
-    )
-  )
+##   DBI::dbClearResult(
+##     DBI::dbSendQuery(
+##       con,
+##       "CREATE TRIGGER no_overlaps BEFORE INSERT
+##        ON location_geometries
+##        $BODY$
+##        BEGIN
+##          SELECT CASE
+##          WHEN EXISTS(
+##            SELECT location_id,time_left,time_right
+##            FROM location_geometries as OLD
+##            WHERE
+##              OLD.location_id = NEW.location_id AND
+##              OLD.time_left < NEW.time_right AND
+##              OLD.time_right >= NEW.time_right
+##          )
+##          THEN
+##            RAISE(ABORT, 'overlapping intervals')
+##          END;
+##          SELECT CASE
+##          WHEN EXISTS(
+##            SELECT location_id,time_left,time_right
+##            FROM location_geometries as OLD
+##            WHERE
+##              OLD.location_id = NEW.location_id AND
+##              OLD.time_left <= NEW.time_left AND
+##              OLD.time_right > NEW.time_left
+##          )
+##          THEN
+##            RAISE(ABORT, 'overlapping intervals')
+##          END;
+##        END;
+##        $BODY$;"
+##     )
+##   )
 
   ## nolint start
   ## The first table holds the locations and any metadata
@@ -158,7 +174,7 @@ create_database <- function(dbname = default_database_filename()){
       "CREATE TABLE IF NOT EXISTS location_aliases(
          alias text NOT NULL,
          location_id integer NOT NULL,
-         PRIMARY KEY(alias,location_id)
+         PRIMARY KEY(alias,location_id),
          FOREIGN KEY(location_id) REFERENCES locations(id)
        );"
     )
@@ -171,9 +187,9 @@ create_database <- function(dbname = default_database_filename()){
   ## Populate with a root
   RSQLite::dbDisconnect(con)
   suppressWarnings(try({
-    loc_id <- database_add_location("", "", NULL, dbname)
-    database_add_hierarchy(loc_id, loc_id, 0, dbname = dbname)
-    database_add_location_alias(loc_id, "", dbname = dbname)
+    loc_id <- database_add_location("", "", NULL, dbname = dbname,...)
+    database_add_hierarchy(loc_id, loc_id, 0, dbname = dbname,...)
+    database_add_location_alias(loc_id, "", dbname = dbname,...)
   },
   silent = T))
   return()
@@ -183,7 +199,7 @@ create_database <- function(dbname = default_database_filename()){
 
 #' @name database_add_location
 #' @title database_add_location
-#' @description Wrapper for the sql code to create a location.  This function should not be called directly in most circumstances.  See database_add_descendant_id and database_add_alias instead.
+#' @description Wrapper for the sql code to create a location.  This function should not be called directly in most circumstances.  See database_add_descendant and database_add_alias instead.
 #' @param name location name to add
 #' @param readable_name common readable name for the location
 #' @param metadata Additional data that may be useful to identify the location name.
@@ -192,7 +208,8 @@ database_add_location <- function(
   name,
   readable_name,
   metadata = NULL,
-  dbname = default_database_filename()
+  dbname = default_database_filename(),
+  ...
 ){
   rc <- as.integer(NA)
   if (is.numeric(name)){
@@ -203,15 +220,13 @@ database_add_location <- function(
   query <- "INSERT INTO locations
       (name,readable_name,metadata)
     VALUES
-      ({name},{readable_name},{metadata})"
+      ({name},{readable_name},{metadata})
+    RETURNING
+      id"
 
-  con <- DBI::dbConnect(drv = RSQLite::SQLite(), dbname)
+  con <- DBI::dbConnect(drv = RPostgres::Postgres(), dbname = dbname,...)
   tryCatch({
-    DBI::dbClearResult(DBI::dbSendQuery(con, glue::glue_sql(.con = con, query)))
-    rc <- DBI::dbGetQuery(
-      con,
-      "SELECT DISTINCT last_insert_rowid() FROM locations"
-    )
+    rc <- DBI::dbGetQuery(con, glue::glue_sql(.con = con, query))
   },
   error = function(e){
     RSQLite::dbDisconnect(con)
@@ -225,7 +240,7 @@ database_add_location <- function(
 
 #' @name database_add_location_hierarchy
 #' @title database_add_location_hierarchy
-#' @description Wrapper for the sql code to create a relationship in the location hierarchy.  This function should not be called directly in most circumstances.  See database_add_descendant_id and database_add_alias instead.
+#' @description Wrapper for the sql code to create a relationship in the location hierarchy.  This function should not be called directly in most circumstances.  See database_add_descendant and database_add_alias instead.
 #' @param parent_id The id of the parent in the relationship.  The id is with respect to the locations table in the database
 #' @param descendant_id The id of the descendant_id in the relationship.  The id is with respect to the locations table in the database
 #' @param depth The distance between the parent and the descendant_id along the tree.  Should be one more than the number of intermediate locations between the parent and child.
@@ -233,12 +248,13 @@ database_add_location <- function(
 database_add_hierarchy <- function(
   parent_id,
   descendant_id,
-  depth, dbname = default_database_filename()
+  depth,
+  dbname = default_database_filename(),...
 ){
   query <- "INSERT INTO location_hierarchy
       (parent_id, descendant_id,depth)
     VALUES ({parent_id},{descendant_id},{depth})"
-  con <- DBI::dbConnect(drv = RSQLite::SQLite(), dbname)
+  con <- DBI::dbConnect(drv = RPostgres::Postgres(), dbname = dbname,...)
   tryCatch({
     DBI::dbClearResult(DBI::dbSendQuery(con, glue::glue_sql(.con = con, query)))
   },
@@ -265,14 +281,15 @@ database_add_location_geometry <- function(
   time_left,
   time_right,
   geometry,
-  dbname = default_database_filename()
+  dbname = default_database_filename(),
+  ...
 ){
-  geometry <- geojsonsf::sfc_geojson(geometry)
+  sf::st_as_text
   query <- "INSERT INTO location_geometries
       (location_id, time_left, time_right, geometry)
     VALUES
-      ({location_id},{time_left},{time_right},{geometry})"
-  con <- DBI::dbConnect(drv = RSQLite::SQLite(), dbname)
+      ({location_id},{time_left},{time_right},{sf::st_as_text(geometry)})"
+  con <- DBI::dbConnect(drv = RPostgres::Postgres(), dbname = dbname,...)
   tryCatch({
     DBI::dbClearResult(DBI::dbSendQuery(con, glue::glue_sql(.con = con, query)))
   },
@@ -295,14 +312,15 @@ database_add_location_geometry <- function(
 database_add_location_alias <- function(
   location_id,
   alias,
-  dbname = default_database_filename()
+  dbname = default_database_filename(),
+  ...
 ){
   alias <- standardize_location_strings(alias)
   query <- "INSERT INTO location_aliases
       (location_id, alias)
     VALUES
       ({location_id},{alias})"
-  con <- DBI::dbConnect(drv = RSQLite::SQLite(), dbname)
+  con <- DBI::dbConnect(drv = RPostgres::Postgres(), dbname = dbname,...)
   tryCatch({
     DBI::dbClearResult(DBI::dbSendQuery(con, glue::glue_sql(.con = con, query)))
   },
@@ -324,16 +342,17 @@ database_add_location_alias <- function(
 #' @export
 get_database_id_from_name <- function(
   name,
-  dbname = default_database_filename()
+  dbname = default_database_filename(),
+  ...
 ){
   if (length(name) > 1){
-    return(sapply(name, get_database_id_from_name, dbname = dbname))
+    return(sapply(name, get_database_id_from_name, dbname = dbname,...))
   }
   query <- "SELECT
     id
   FROM locations
-    WHERE name is {name}"
-  con <- DBI::dbConnect(drv = RSQLite::SQLite(), dbname)
+    WHERE name = {name}"
+  con <- DBI::dbConnect(drv = RPostgres::Postgres(), dbname = dbname,...)
   tryCatch({
     rc <- DBI::dbGetQuery(con, glue::glue_sql(.con = con, query))
   },
@@ -360,10 +379,11 @@ get_database_id_from_name <- function(
 database_merge_locations <- function(
   from,
   to,
-  dbname=default_database_filename()
+  dbname = default_database_filename(),
+  ...
 ){
 
-  con <- DBI::dbConnect(drv = RSQLite::SQLite(), dbname)
+  con <- DBI::dbConnect(drv = RPostgres::Postgres(), dbname = dbname,...)
 
   if(class(from) == 'character'){
     from <- get_database_id_from_name(from, dbname)
