@@ -25,16 +25,16 @@ reset_database <- function(dbname = default_database_filename(),...){
   # file.create(dbname)
   con <- DBI::dbConnect(drv = RPostgres::Postgres(), dbname = dbname,...)
   suppressWarnings(DBI::dbClearResult(
-    DBI::dbSendQuery(con, "DROP TABLE IF EXISTS location_aliases;")
+    DBI::dbSendQuery(con, "DROP TABLE IF EXISTS location_aliases CASCADE;")
   ))
   suppressWarnings(DBI::dbClearResult(
-    DBI::dbSendQuery(con, "DROP TABLE IF EXISTS location_geometries;")
+    DBI::dbSendQuery(con, "DROP TABLE IF EXISTS location_geometries CASCADE;")
   ))
   suppressWarnings(DBI::dbClearResult(
-    DBI::dbSendQuery(con, "DROP TABLE IF EXISTS location_hierarchy;")
+    DBI::dbSendQuery(con, "DROP TABLE IF EXISTS location_hierarchy CASCADE;")
   ))
   suppressWarnings(DBI::dbClearResult(
-    DBI::dbSendQuery(con, "DROP TABLE IF EXISTS locations;")
+    DBI::dbSendQuery(con, "DROP TABLE IF EXISTS locations CASCADE;")
   ))
   return()
 }
@@ -391,12 +391,24 @@ database_merge_locations <- function(
   if(class(to) == 'character'){
     to <- get_database_id_from_name(to, dbname)
   }
-  add_query <- "UPDATE OR IGNORE {`table_name`}
-    SET
-      {`location_field`} = {to}
-    WHERE
-      {`location_field`} = {from}"
-  drop_query <- "DELETE FROM {`table_name`} WHERE {`location_field`} = {from}"
+  lock_query_1 <- "BEGIN WORK;"
+  lock_query_2 <- "LOCK locations IN EXCLUSIVE MODE;"
+  lock_query_2 <- "LOCK location_hierarchy IN EXCLUSIVE MODE;"
+  lock_query_2 <- "LOCK location_alases IN EXCLUSIVE MODE;"
+  lock_query_2 <- "LOCK location_geometries IN EXCLUSIVE MODE;"
+
+  unlock_query <- "COMMIT WORK;"
+
+  add_query <- "
+  UPDATE {`table_name`}
+  SET {`location_field`} = {to}
+  WHERE {`location_field`} = {from}
+  "
+
+  drop_query_pre_1 <- "CREATE TEMPORARY TABLE temp as SELECT * from {`table_name`}"
+  drop_query_pre_2 <- gsub("`table_name`","temp",add_query)
+  drop_query_pre_3 <- "DELETE FROM {`table_name`} as lhs USING temp where {`table_name`} in (select row({`table_name`}.*) from {`location_name`} natural join temp);"
+  drop_query <- "DELETE FROM {`table_name`} WHERE {`location_field`} = {from};"
 
   all_iterations <- tibble::tibble(
     table_name = c(    "location_aliases", "location_hierarchy", "location_hierarchy", "location_geometries"),
@@ -404,38 +416,57 @@ database_merge_locations <- function(
     location_field = c("location_id",      "descendant_id",      "parent_id",          "location_id"),
   )
 
+  tryCatch({
+    DBI::dbSendQuery(
+      con,
+      lock_query
+    )
+  },
+  error = function(e){
+    RSQLite::dbDisconnect(con)
+    stop(e$message)
+  })
+
   for(it in 1:nrow(all_iterations)){
     ## These variables are used, but the lintr doesn't see that use
     table_name <- all_iterations$table_name[it]
     link_field <- all_iterations$link_field[it]
     location_field <- all_iterations$location_field[it]
+    browser()
     tryCatch({
-      DBI::dbClearResult(DBI::dbSendQuery(
-        con,
-        glue::glue_sql(.con = con, add_query)
-      ))
-      DBI::dbClearResult(DBI::dbSendQuery(
-        con,
-        glue::glue_sql(.con = con, drop_query)
-      ))
-    },
-    error = function(e){
-      RSQLite::dbDisconnect(con)
-      stop(e$message)
-    })
-    table_name <- "locations"
-    location_field <- "id"
-    tryCatch({
-      DBI::dbClearResult(DBI::dbSendQuery(
-        con,
-        glue::glue_sql(.con = con, drop_query)
-      ))
+      DBI::dbSendQuery(.con = con, glue::glue_sql(.con=con,drop_query_pre_1))
+      DBI::dbSendQuery(.con = con, glue::glue_sql(.con=con,drop_query_pre_2))
+      DBI::dbSendQuery(.con = con, glue::glue_sql(.con=con,drop_query_pre_3))
+      DBI::dbSendQuery(.con = con, glue::glue_sql(.con=con,add_query))
+      DBI::dbSendQuery(.con = con, glue::glue_sql(.con=con,drop_query))
     },
     error = function(e){
       RSQLite::dbDisconnect(con)
       stop(e$message)
     })
   }
+  table_name <- "locations"
+  location_field <- "id"
+  tryCatch({
+    DBI::dbClearResult(DBI::dbSendQuery(
+      con,
+      glue::glue_sql(.con=con,drop_query)
+    ))
+  },
+  error = function(e){
+    RSQLite::dbDisconnect(con)
+    stop(e$message)
+  })
+  tryCatch({
+    DBI::dbClearResult(DBI::dbSendQuery(
+      con,
+      unlock_query
+    ))
+  },
+  error = function(e){
+    RSQLite::dbDisconnect(con)
+    stop(e$message)
+  })
 
   RSQLite::dbDisconnect(con)
   return()

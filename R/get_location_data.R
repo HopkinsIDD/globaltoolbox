@@ -40,10 +40,10 @@ get_location_metadata <- function(
     WHERE
       1=1"
    if(!is.null(location)){
-      query <- paste(query, "AND name is {location}")
+      query <- paste(query, "AND name = {location}")
    }
   if(!aliases){
-    query <- paste(query, 'AND alias is name')
+    query <- paste(query, 'AND alias = name')
   }
   if(is.null(source)){
     query <- paste(query, 'AND depth = 0')
@@ -143,7 +143,7 @@ get_all_aliases <- function(
     WHERE
       1=1"
    if(!is.null(location)){
-      query <- paste(query, "AND name is {location}")
+      query <- paste(query, "AND name = {location}")
    }
   if(!is.null(source)){
     parent_id <- NA
@@ -216,7 +216,7 @@ get_location_geometry <- function(
     WHERE
       1=1"
   if(!is.null(location)){
-     query <- paste(query, "AND name is {location}")
+     query <- paste(query, "AND name = {location}")
   }
   if(!is.na(time_left)){
     query <- paste(query, "AND {time_left} < time_right")
