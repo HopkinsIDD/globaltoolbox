@@ -31,7 +31,7 @@ reset_database <- function(dbname = default_database_filename(),...){
     DBI::dbSendQuery(con, "DROP TABLE IF EXISTS location_geometries CASCADE;")
   ))
   suppressWarnings(DBI::dbClearResult(
-    DBI::dbSendQuery(con, "DROP TABLE IF EXISTS location_hierarchy CASCADE;")
+    DBI::dbSendQuery(con, "DROP VIEW IF EXISTS location_hierarchy CASCADE;")
   ))
   suppressWarnings(DBI::dbClearResult(
     DBI::dbSendQuery(con, "DROP TABLE IF EXISTS locations CASCADE;")
@@ -76,6 +76,47 @@ create_database <- function(dbname = default_database_filename(),...){
        );"
     ))
 
+
+  ## nolint start
+  ## The third table holds the geometric information
+  ## | Name       | Type     | Description                                           | Constraints |
+  ## |------------|----------|-------------------------------------------------------|-------------|
+  ## | id         | SERIAL   | A unique id per shapefile                             |             |
+  ## | name       | text     | A name of for the geometry                            | NOT NULL    |
+  ## | time_left  | date     | The first time this shapefile represents the location | NOT NULL    |
+  ## | time_right | date     | The last time this shapefile represents the location  | NOT NULL    |
+  ## | geometry   | geometry | The geometry this row represents                      | NOT NULL    |
+  ## nolint end
+  DBI::dbClearResult(
+    DBI::dbSendQuery(
+      con,
+      "CREATE TABLE IF NOT EXISTS location_geometries(
+         id SERIAL PRIMARY KEY,
+         name text NOT NULL,
+         readable_name text NOT NULL,
+         time_left date,
+         time_right date CHECK (time_left <= time_right),
+         inner_geometry geometry NOT NULL,
+         outer_geometry geometry NOT NULL,
+         source text NOT NULL
+       );"
+    )
+  )
+
+
+  DBI::dbClearResult(
+    DBI::dbSendQuery(
+      con,
+      "CREATE INDEX location_geometries_igix ON location_geometries USING GIST(inner_geometry);"
+    )
+  )
+  DBI::dbClearResult(
+    DBI::dbSendQuery(
+      con,
+      "CREATE INDEX location_geometries_ogix ON location_geometries USING GIST(outer_geometry);"
+    )
+  )
+
   ## nolint start
   ## The second table holds the tree structure of containment
   ## | Name          | Type    | Description                                         | Constraints                                   |
@@ -88,41 +129,116 @@ create_database <- function(dbname = default_database_filename(),...){
   DBI::dbClearResult(
     DBI::dbSendQuery(
       con,
-      "CREATE TABLE IF NOT EXISTS location_hierarchy(
-         parent_id integer NOT NULL,
-         descendant_id integer NOT NULL,
-         depth integer NOT NULL,
-         PRIMARY KEY(parent_id,descendant_id),
-         FOREIGN KEY(parent_id) REFERENCES locations(id),
-         FOREIGN KEY(descendant_id) REFERENCES locations(id)
-       );"
+      "DROP VIEW IF EXISTS location_hierarchy"
     )
   )
 
-  ## nolint start
-  ## The third table holds the geometric information
-  ## | Name        | Type           | Description                                           | Constraints                                   |
-  ## |-------------|----------------|-------------------------------------------------------|-----------------------------------------------|
-  ## | id          | SERIAL         | A unique id per shapefile                             |                                               |
-  ## | location_id | integer        | Which location this is a shapefile for                | NOT NULL FOREIGN KEY REFERENCES locations(id) |
-  ## | time_left   | date           | The first time this shapefile represents the location | NOT NULL                                      |
-  ## | time_right  | date           | The last time this shapefile represents the location  | NOT NULL                                      |
-  ## | geometry    | geometry       | The geometry this row represents                      | NOT NULL                                      |
-  ## nolint end
   DBI::dbClearResult(
     DBI::dbSendQuery(
       con,
-      "CREATE TABLE IF NOT EXISTS location_geometries(
-         id SERIAL PRIMARY KEY,
-         location_id integer NOT NULL,
-         time_left date NOT NULL,
-         time_right date NOT NULL CHECK (time_left <= time_right),
-         geometry geometry NOT NULL,
-         UNIQUE(location_id,time_left,time_right),
-         FOREIGN KEY(location_id) REFERENCES locations(id)
-       );"
+      # "CREATE VIEW location_hierarchy AS 
+      "CREATE MATERIALIZED VIEW location_hierarchy AS 
+      (SELECT
+        table_1.id as ancestor,
+        table_3.id as descendant,
+        table_1.name as ancestor_name,
+        table_3.name as descendant_name,
+        count(table_2.name) as depth,
+        greatest(table_1.time_left ,MAX(table_2.time_left ), table_3.time_left ) as time_left, 
+        least   (table_1.time_right,MIN(table_2.time_right),table_3.time_right) as time_right
+      FROM
+        location_geometries as table_1
+      LEFT JOIN
+        location_geometries as table_2
+      ON
+        table_1.id <> table_2.id OR table_1.id = table_2.id
+      LEFT JOIN
+        location_geometries as table_3
+      ON
+        table_2.id <> table_3.id OR table_2.id = table_3.id
+      WHERE
+        ST_CONTAINS(table_1.outer_geometry,table_2.inner_geometry) AND
+        ST_CONTAINS(table_2.outer_geometry,table_3.inner_geometry)
+      GROUP BY
+        table_1.id,
+        table_3.id
+      );
+      "
     )
   )
+  
+  DBI::dbClearResult(
+    DBI::dbSendQuery(
+      con,
+      "CREATE VIEW graph_duplicate_locations AS
+        (SELECT
+          lhs.ancestor as lhs,
+          lhs.descendant as rhs
+        FROM
+          location_hierarchy as lhs
+        INNER JOIN
+          location_hierarchy as rhs
+        ON
+          lhs.ancestor = rhs.descendant AND
+          lhs.descendant = rhs.ancestor
+        WHERE
+          lhs.ancestor != lhs.descendant
+      );"
+    )
+  )
+
+  DBI::dbClearResult(
+    DBI::dbSendQuery(
+      con,
+      "CREATE VIEW geometry_duplicate_locations AS
+        (SELECT
+          lhs.ancestor as lhs,
+          lhs.descendant as rhs,
+          lhs_geo.inner_geometry as lhs_geometry,
+          rhs_geo.inner_geometry as rhs_geometry
+        FROM
+          location_hierarchy as lhs
+        INNER JOIN
+          location_hierarchy as rhs
+        ON
+          lhs.ancestor = rhs.descendant AND
+          lhs.descendant = rhs.ancestor
+        INNER JOIN
+          location_geometries as lhs_geo
+        ON
+          lhs.ancestor = lhs_geo.id
+        INNER JOIN
+          location_geometries as rhs_geo
+        ON
+          rhs.ancestor = rhs_geo.id
+        WHERE
+          lhs.ancestor != lhs.descendant AND
+          (
+            (
+              st_area(st_difference(lhs_geo.inner_geometry,rhs_geo.inner_geometry)) + 
+              st_area(st_difference(rhs_geo.inner_geometry,lhs_geo.inner_geometry))
+            ) /
+              st_area(st_union(lhs_geo.inner_geometry,rhs_geo.inner_geometry))
+          ) < .01
+      );"
+    )
+  )
+
+  DBI::dbClearResult(
+    DBI::dbSendQuery(
+      con,
+      "CREATE OR REPLACE FUNCTION tg_refresh_my_mv()
+      RETURNS trigger LANGUAGE plpgsql AS $$
+      BEGIN
+        REFRESH MATERIALIZED VIEW location_hierarchy;
+        RETURN NULL;
+      END;
+      $$;"
+    )
+  )
+
+  enable_location_hierarchy_update_trigger(dbname);
+
 ##   DBI::dbClearResult(
 ##     DBI::dbSendQuery(
 ##       con,
@@ -173,9 +289,9 @@ create_database <- function(dbname = default_database_filename(),...){
       con,
       "CREATE TABLE IF NOT EXISTS location_aliases(
          alias text NOT NULL,
-         location_id integer NOT NULL,
-         PRIMARY KEY(alias,location_id),
-         FOREIGN KEY(location_id) REFERENCES locations(id)
+         geometry_id integer NOT NULL,
+         PRIMARY KEY(alias,geometry_id),
+         FOREIGN KEY(geometry_id) REFERENCES location_geometries(id)
        );"
     )
   )
@@ -233,37 +349,7 @@ database_add_location <- function(
     stop(e$message)
   })
   RSQLite::dbDisconnect(con)
-  return(rc)
-}
-
-
-
-#' @name database_add_location_hierarchy
-#' @title database_add_location_hierarchy
-#' @description Wrapper for the sql code to create a relationship in the location hierarchy.  This function should not be called directly in most circumstances.  See database_add_descendant and database_add_alias instead.
-#' @param parent_id The id of the parent in the relationship.  The id is with respect to the locations table in the database
-#' @param descendant_id The id of the descendant_id in the relationship.  The id is with respect to the locations table in the database
-#' @param depth The distance between the parent and the descendant_id along the tree.  Should be one more than the number of intermediate locations between the parent and child.
-#' @param dbname database name to put location information.
-database_add_hierarchy <- function(
-  parent_id,
-  descendant_id,
-  depth,
-  dbname = default_database_filename(),...
-){
-  query <- "INSERT INTO location_hierarchy
-      (parent_id, descendant_id,depth)
-    VALUES ({parent_id},{descendant_id},{depth})"
-  con <- DBI::dbConnect(drv = RPostgres::Postgres(), dbname = dbname,...)
-  tryCatch({
-    DBI::dbClearResult(DBI::dbSendQuery(con, glue::glue_sql(.con = con, query)))
-  },
-  error = function(e){
-    RSQLite::dbDisconnect(con)
-    stop(e$message)
-  })
-  RSQLite::dbDisconnect(con)
-  return()
+  return(rc$id)
 }
 
 
@@ -277,28 +363,53 @@ database_add_hierarchy <- function(
 #' @param geometry The geometry to add to the database for the given time period.  Should be an sfc object.
 #' @param dbname database name to put location information.
 database_add_location_geometry <- function(
-  location_id,
+  name,
+  readable_name,
+  source_name,
   time_left,
   time_right,
   geometry,
   dbname = default_database_filename(),
   ...
 ){
+  invalid_idx <- is.na(name) | is.na(readable_name)
   sf::st_as_text
-  query <- "INSERT INTO location_geometries
-      (location_id, time_left, time_right, geometry)
-    VALUES
-      ({location_id},{time_left},{time_right},{sf::st_as_text(geometry)})"
+  if(any(invalid_idx)){
+    if(sum(!invalid_idx) == 0){return(c())}
+    readable_name <- readable_name[!invalid_idx]
+    name <- name[!invalid_idx]
+    time_left <- time_left[!invalid_idx]
+    time_right <- time_right[!invalid_idx]
+    geometry <- geometry[!invalid_idx]
+  }
+  if(class(time_left) == 'character'){
+    time_left <- lubridate::ymd(time_left)
+  }
+  if(class(time_right) == 'character'){
+    time_right <- lubridate::ymd(time_right)
+  }
+  query_head <- "INSERT INTO location_geometries
+      (name, readable_name, time_left, time_right, inner_geometry,outer_geometry,source)
+    VALUES"
+  query_body <- "({name},{readable_name},{time_left},{time_right},{sf::st_as_text(geometry)},ST_BUFFER({sf::st_as_text(geometry)},.001),{source_name})"
+  query_tail <- "
+    RETURNING
+      id"
   con <- DBI::dbConnect(drv = RPostgres::Postgres(), dbname = dbname,...)
   tryCatch({
-    DBI::dbClearResult(DBI::dbSendQuery(con, glue::glue_sql(.con = con, query)))
+    query <- paste(query_head,paste(glue::glue_sql(.con=con,query_body),collapse=', '),query_tail)
+    geometry_id <- DBI::dbGetQuery(con, query)
   },
   error = function(e){
     RSQLite::dbDisconnect(con)
     stop(e$message)
   })
   RSQLite::dbDisconnect(con)
-  return()
+  database_add_location_alias(
+    geometry_id = geometry_id$id,
+    alias = name
+  )
+  return(geometry_id$id)
 }
 
 
@@ -310,19 +421,26 @@ database_add_location_geometry <- function(
 #' @param alias The alias to add.
 #' @param dbname database name to put location information.
 database_add_location_alias <- function(
-  location_id,
+  geometry_id,
   alias,
   dbname = default_database_filename(),
   ...
 ){
   alias <- standardize_location_strings(alias)
-  query <- "INSERT INTO location_aliases
-      (location_id, alias)
-    VALUES
-      ({location_id},{alias})"
+  geometry_id <- geometry_id[!is.na(alias)]
+  alias <- alias[!is.na(alias)]
+  if(length(alias) == 0){
+    return()
+  }
+  query_head <- "INSERT INTO location_aliases
+      (geometry_id, alias)
+    VALUES"
+  query_body <- "({geometry_id},{alias})"
+  query_tail <- "ON CONFLICT DO NOTHING"
   con <- DBI::dbConnect(drv = RPostgres::Postgres(), dbname = dbname,...)
   tryCatch({
-    DBI::dbClearResult(DBI::dbSendQuery(con, glue::glue_sql(.con = con, query)))
+    query <- paste(query_head,paste(glue::glue_sql(.con=con,query_body),collapse=', '),query_tail)
+    DBI::dbClearResult(DBI::dbSendQuery(con, query))
   },
   error = function(e){
     RSQLite::dbDisconnect(con)
@@ -330,42 +448,6 @@ database_add_location_alias <- function(
   })
   RSQLite::dbDisconnect(con)
   return()
-}
-
-
-
-#' @name get_database_id_from_name
-#' @title get_database_id_from_name
-#' @description Get the id of a location by looking up it's name.
-#' @param name Standardized name of a location
-#' @param dbname Name of the database. Defaults to default location.
-#' @export
-get_database_id_from_name <- function(
-  name,
-  dbname = default_database_filename(),
-  ...
-){
-  if (length(name) > 1){
-    return(sapply(name, get_database_id_from_name, dbname = dbname,...))
-  }
-  query <- "SELECT
-    id
-  FROM locations
-    WHERE name = {name}"
-  con <- DBI::dbConnect(drv = RPostgres::Postgres(), dbname = dbname,...)
-  tryCatch({
-    rc <- DBI::dbGetQuery(con, glue::glue_sql(.con = con, query))
-  },
-  error = function(e){
-    RSQLite::dbDisconnect(con)
-    stop(e$message)
-  })
-  RSQLite::dbDisconnect(con)
-
-  if (length(rc$id) != 1){
-    stop(paste("Ambiguous location", name, "has", nrow(rc), "location_ids"))
-  }
-  return(rc$id)
 }
 
 
@@ -376,7 +458,7 @@ get_database_id_from_name <- function(
 #' @param from The name of the location to merge into another location (this location will be deleted)
 #' @param to The name of the location to merge another location into (this location will contain all data for both locations)
 #' @param dbname Name of the database. Defaults to default location.
-database_merge_locations <- function(
+database_merge_location_geometries <- function(
   from,
   to,
   dbname = default_database_filename(),
@@ -384,90 +466,111 @@ database_merge_locations <- function(
 ){
 
   con <- DBI::dbConnect(drv = RPostgres::Postgres(), dbname = dbname,...)
-
-  if(class(from) == 'character'){
-    from <- get_database_id_from_name(from, dbname)
+  if(length(to) != 1){
+    stop("Only merge into a single location at a time")
   }
-  if(class(to) == 'character'){
-    to <- get_database_id_from_name(to, dbname)
-  }
-  lock_query_1 <- "BEGIN WORK;"
-  lock_query_2 <- "LOCK locations IN EXCLUSIVE MODE;"
-  lock_query_2 <- "LOCK location_hierarchy IN EXCLUSIVE MODE;"
-  lock_query_2 <- "LOCK location_alases IN EXCLUSIVE MODE;"
-  lock_query_2 <- "LOCK location_geometries IN EXCLUSIVE MODE;"
-
-  unlock_query <- "COMMIT WORK;"
-
-  add_query <- "
-  UPDATE {`table_name`}
-  SET {`location_field`} = {to}
-  WHERE {`location_field`} = {from}
-  "
-
-  drop_query_pre_1 <- "CREATE TEMPORARY TABLE temp as SELECT * from {`table_name`}"
-  drop_query_pre_2 <- gsub("`table_name`","temp",add_query)
-  drop_query_pre_3 <- "DELETE FROM {`table_name`} as lhs USING temp where {`table_name`} in (select row({`table_name`}.*) from {`location_name`} natural join temp);"
-  drop_query <- "DELETE FROM {`table_name`} WHERE {`location_field`} = {from};"
-
-  all_iterations <- tibble::tibble(
-    table_name = c(    "location_aliases", "location_hierarchy", "location_hierarchy", "location_geometries"),
-    link_field = c(    "alias",            "parent_id",          "descendant_id",      "id"),
-    location_field = c("location_id",      "descendant_id",      "parent_id",          "location_id"),
-  )
+  query <- "SELECT alias from location_aliases where geometry_id = {from}"
+  drop_query_1 <- "DELETE from location_aliases where geometry_id = {from}"
+  drop_query_2 <- "DELETE from location_geometries where id = {from}"
 
   tryCatch({
-    DBI::dbSendQuery(
-      con,
-      lock_query
-    )
+    rc <- DBI::dbGetQuery(con, glue::glue_sql(.con = con, query))$alias
   },
   error = function(e){
-    RSQLite::dbDisconnect(con)
-    stop(e$message)
+    DBI::dbDisconnect(con)
   })
-
-  for(it in 1:nrow(all_iterations)){
-    ## These variables are used, but the lintr doesn't see that use
-    table_name <- all_iterations$table_name[it]
-    link_field <- all_iterations$link_field[it]
-    location_field <- all_iterations$location_field[it]
-    browser()
-    tryCatch({
-      DBI::dbSendQuery(.con = con, glue::glue_sql(.con=con,drop_query_pre_1))
-      DBI::dbSendQuery(.con = con, glue::glue_sql(.con=con,drop_query_pre_2))
-      DBI::dbSendQuery(.con = con, glue::glue_sql(.con=con,drop_query_pre_3))
-      DBI::dbSendQuery(.con = con, glue::glue_sql(.con=con,add_query))
-      DBI::dbSendQuery(.con = con, glue::glue_sql(.con=con,drop_query))
-    },
-    error = function(e){
-      RSQLite::dbDisconnect(con)
-      stop(e$message)
-    })
-  }
-  table_name <- "locations"
-  location_field <- "id"
+  database_add_location_alias(geometry_id = rep(to,times=length(rc)), alias=rc,dbname=dbname,...)
   tryCatch({
-    DBI::dbClearResult(DBI::dbSendQuery(
-      con,
-      glue::glue_sql(.con=con,drop_query)
-    ))
+    DBI::dbClearResult(DBI::dbSendQuery(con,glue::glue_sql(.con = con, drop_query_1)))
+    DBI::dbClearResult(DBI::dbSendQuery(con,glue::glue_sql(.con = con, drop_query_2)))
   },
   error = function(e){
-    RSQLite::dbDisconnect(con)
-    stop(e$message)
+    DBI::dbDisconnect(con)
   })
-  tryCatch({
-    DBI::dbClearResult(DBI::dbSendQuery(
-      con,
-      unlock_query
-    ))
-  },
-  error = function(e){
-    RSQLite::dbDisconnect(con)
-    stop(e$message)
-  })
-
   RSQLite::dbDisconnect(con)
   return()
 }
+
+
+enable_location_hierarchy_update_trigger <- function(dbname = default_database_filename(),...){
+  con <- DBI::dbConnect(drv = RPostgres::Postgres(), dbname = dbname,...)
+  tryCatch({
+    DBI::dbClearResult(
+      DBI::dbSendQuery(
+        con,
+        "CREATE TRIGGER tg_refresh_my_mv AFTER INSERT OR UPDATE OR DELETE
+        ON location_geometries
+        FOR EACH STATEMENT EXECUTE PROCEDURE tg_refresh_my_mv();"
+      )
+    )
+  }, error = function(e){
+    RSQLite::dbDisconnect(con)
+    stop(e$message)
+  })
+}
+
+disable_location_hierarchy_update_trigger <- function(dbname = default_database_filename(),...){
+  con <- DBI::dbConnect(drv = RPostgres::Postgres(), dbname = dbname,...)
+  tryCatch({
+    DBI::dbClearResult(
+      DBI::dbSendQuery(
+        con,
+        "DROP TRIGGER tg_refresh_my_mv on location_geometries;"
+      )
+    )
+  }, error = function(e){
+    RSQLite::dbDisconnect(con)
+    stop(e$message)
+  })
+}
+
+refresh_location_hierarchy <- function(dbname = default_database_filename(),...){
+  message("Refreshing the location hierarchy.  This may take some time.")
+  con <- DBI::dbConnect(drv = RPostgres::Postgres(), dbname = dbname,...)
+  tryCatch({
+    DBI::dbClearResult(
+      DBI::dbSendQuery(
+        con,
+        "REFRESH MATERIALIZED VIEW location_hierarchy"
+      )
+    )
+  }, error = function(e){
+    DBI::dbDisconnect(con)
+    stop(e$message)
+  })
+}
+
+merge_all_geometric_duplicates <- function(limit = Inf,dbname = default_database_filename(),...){
+  con <- DBI::dbConnect(drv = RPostgres::Postgres(), dbname = dbname,...)
+  # pre_query <- "REFRESH MATERIALIZED VIEW geometry_duplicate_locations"
+  if(is.finite(limit)){
+    query <- "SELECT lhs,rhs FROM geometry_duplicate_locations LIMIT {limit}"
+  } else {
+    query <- "SELECT lhs,rhs FROM geometry_duplicate_locations"
+  }
+  # DBI::dbClearResult(DBI::dbSendQuery(con,pre_query))
+  rc <- DBI::dbGetQuery(con, glue::glue_sql(.con = con, query))
+  from_keys= c()
+  to_keys = c()
+  if(nrow(rc) == 0){return()}
+  for(idx in 1:nrow(rc)){
+    print(paste(idx,"/",nrow(rc)))
+    from_key <- max(rc[idx,])
+    to_key   <- min(rc[idx,])
+    while(from_key %in% from_keys){
+      from_key <- to_keys[from_keys == from_key][1]
+    }
+    while(to_key %in% from_keys){
+      to_key <- to_keys[from_keys == to_key]
+    }
+    if(to_key == from_key){next}
+    database_merge_location_geometries(
+      from_key,
+      to_key,
+      dbname=dbname
+    )
+    from_keys[length(from_keys) + 1] <- from_key
+    to_keys[length(to_keys) + 1] <- to_key
+  }
+}
+

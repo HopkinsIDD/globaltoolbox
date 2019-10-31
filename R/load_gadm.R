@@ -6,6 +6,8 @@
 #' @param dbname The name of the database.
 #' @export
 load_country_aliases <- function(dbname = default_database_filename()){
+  disable_location_hierarchy_update_trigger(dbname)
+  tryCatch({
   filename <- system.file(
     "extdata",
     "alt_country_names.csv",
@@ -96,6 +98,10 @@ load_country_aliases <- function(dbname = default_database_filename()){
     database_add_location_alias(location_id = id, alias = this_loc$Code, dbname = dbname)
   }
   cat('\n')
+  }, error = function(e){
+    enable_location_hierarchy_update_trigger(dbname)
+    stop(e$message)
+  })
 }
 
 
@@ -180,6 +186,7 @@ load_hierarchical_sf <- function(
   geometry = TRUE,
   geometry_union = FALSE,
   log_file = as.character(NA),
+  refresh_on_exit=TRUE,
   dbname = default_database_filename()
 ){
   error_messages <- c("")
@@ -188,198 +195,44 @@ load_hierarchical_sf <- function(
   if(!is.na(log_file)){
     message(paste("Logging to file",log_file))
   }
+  alias_column_names <- lapply(alias_column_names,function(x){x[x %in% names(shp_files)]})
   for (level in 1:n_levels){
-    alias_columns <- alias_column_names[[level]]
-    alias_columns <- alias_columns[alias_columns %in% names(shp_files)]
-    all_names <- tibble::as_tibble(shp_files)
-    all_aliases <- all_names[, c(
-      hierarchy_column_names[1:level],
-      alias_columns
-    )]
-    all_names <- all_names[, hierarchy_column_names[1:level] ]
-    all_string_names <- apply(all_names, 1, paste, collapse = "::")
-    unique_names <- unique(all_names)
-    if (nrow(unique(all_aliases)) == nrow(unique_names)){
-      unique_aliases <- unique(all_aliases)[, alias_columns]
-    } else {
-      unique_aliases <- summarize(
-        group_by(
-          unique(all_aliases),
-          !!!rlang::syms(hierarchy_column_names[1:level])
+    print(paste("Level",level,"/",n_levels))
+    alias_columns <- c(hierarchy_column_names[[level]],alias_column_names[[level]])
+    if(geometry_union | (geometry & level == n_levels)){
+      shp_files$geometry <- sf::st_geometry(shp_files)
+      this_shp_file <- sf::st_as_sf(dplyr::summarize(
+        dplyr::group_by(
+          dplyr::as_tibble(shp_files),
+          !!!rlang::syms(alias_columns)
         ),
-        !!alias_columns := paste(!!!rlang::syms(alias_columns), collapse = "|")
-      )[, alias_columns]
-    }
-    unique_string_names <- apply(unique_names, 1, paste, collapse = "::")
-    last_level <- level - 1
-    shp_name <- unique_names[[level]]
-    shp_name <- standardize_location_strings(shp_name)
-    missing_idx <- is.na(shp_name) |
-        (shp_name == "administrativeunitnotavailable") |
-        (shp_name == "nameunknown") |
-        (shp_name == "")
-    unique_names <- unique_names[!missing_idx, ]
-    unique_aliases <- unique_aliases[!missing_idx, ]
-    shp_name <- shp_name[!missing_idx]
-    if(length(shp_name) == 0){
-      next
-    }
-    shp_source <- rep("", nrow(unique_names))
-    if (last_level > 0){
-      shp_source <- unique_names[, 1:last_level]
-      shp_source <- apply(shp_source, 1, paste, collapse = "::")
-      shp_source <- telescoping_standardize(shp_source, dbname = dbname)
-    }
-    for (i in 1:nrow(unique_names)){
-      cat(paste0("\rlevel ", level, ": ", i, "/", nrow(unique_names)))
-      id <- NA
-      tmp_name <- NA
-      suppressWarnings(try({
-        tmp_name <- database_standardize_name(shp_name[[i]], source = shp_source[[i]], dbname = dbname)
-      },
-      silent = T
+        geometry = sf::st_union(geometry)
       ))
-      ## only check aliases if you couldn't find the original name
-      if(is.na(tmp_name)){
-        for(alias in unique_aliases[i, ]){
 
-          tmp_tmp_name <- NA
-          suppressWarnings(try({
-            tmp_tmp_name <- database_standardize_name(alias, source = shp_source[[i]], dbname = dbname)
-          },
-          silent = T
-          ))
-
-          if(!is.na(tmp_tmp_name)){
-            ## if no tmp_name, set it now
-            if(is.na(tmp_name)){
-              tmp_name <- tmp_tmp_name
-            } else if(isTRUE(tmp_name != tmp_tmp_name)){
-              error_messages <- c(error_messages, paste(paste(shp_source[[i]], shp_name[[i]], sep = "::"),"matches two locations",tmp_name,"and",tmp_tmp_name))
-            }
-          }
-        }
-      }
-      if(is.na(tmp_name)){
-        tmp_name <- paste(shp_source[[i]], shp_name[[i]], sep = "::")
-      } else {
-        tryCatch({
-          id <- globaltoolbox:::get_database_id_from_name(
-            tmp_name,
-            dbname = dbname
-          )
-        },
-        error = function(e){
-          stop(paste("Could not find a database id for",tmp_name,"after standardizing"))
-        })
-      }
-      if(is.na(id)){
-        tryCatch({
-          id <- database_add_descendant(
-            standardized_parent_name = shp_source[[i]],
-            readable_descendant_name = shp_name[[i]],
-            metadata = list(
-              import_type = "load_hierarchical_sf",
-              level = level - 1,
-              source_name = source_name
-            ),
-            dbname = dbname
-          )
-        },
-        error = function(e){
-          if((!grepl('UNIQUE constraint failed', e$message))){
-            error_messages <<- c(
-              error_messages,
-              paste(
-                shp_source[[i]],
-                "had an error entering",
-                shp_name[[i]],
-                "located at",
-                i,
-                "/",
-                nrow(unique_names),
-               "with error",
-                e$message
-              )
-            )
-          }
-        })
-      }
-      for(alias in unique_aliases[i, ]){
-        if(is.na(alias)){next}
-        if(alias == ""){next}
-        tryCatch({
+        geometry_id <- database_add_location_geometry(
+          name = standardize_location_strings(this_shp_file[[hierarchy_column_names[[level]] ]]),
+          readable_name = this_shp_file[[hierarchy_column_names[[level]] ]],
+          time_left = rep(time_left,times = nrow(this_shp_file)),
+          time_right = rep(time_right,times = nrow(this_shp_file)),
+          geometry = sf::st_geometry(this_shp_file),
+          source_name = source_name,
+          dbname = dbname
+        )
+        
+        for(column in alias_column_names[[level]]){
           database_add_location_alias(
-            dbname = dbname,
-            location_id = id,
-            alias = alias
-          )
-        },
-        error = function(e){
-          if(!is.na(id) && (!grepl('UNIQUE constraint failed', e$message))){
-            error_messages <<- c(
-              error_messages,
-              paste(
-                shp_source[[i]],
-                "had an error entering an alias",
-                alias,
-                "for",
-                paste0(shp_source[[i]], "::", shp_name[[i]]),
-                "with error",
-                e$message
-              )
-            )
-          }
-        })
-      }
-      if(geometry & (geometry_union | (level == length(hierarchy_column_names)))){
-        tryCatch({
-            this_geometry <- shp_files[
-                all_string_names == unique_string_names[[i]],
-                ]$geometry
-          if(length(this_geometry) > 1){
-            this_geometry <- st_union(this_geometry)
-          }
-          database_add_location_geometry(
-            location_id = id,
-            time_left = time_left,
-            time_right = time_right,
-            geometry = this_geometry,
+            geometry_id,
+            alias = this_shp_file[[column]],
             dbname = dbname
           )
-        },
-        error = function(e){
-          if(!is.na(id)){
-            error_messages <<- c(
-              error_messages,
-              paste(
-                shp_source[[i]],
-                "had an error entering geometry for",
-                shp_name[[i]],
-                "located at",
-                i,
-                "/",
-                nrow(unique_names),
-                "with error",
-                e$message
-              )
-            )
-          }
-        })
-      }
+        }
+
     }
-    cat("\n")
-    if(!is.na(log_file)){
-      sink(log_file,append=TRUE)
-      for(msg in error_messages){
-          print(msg)
-      }
-      sink()
-    }
-    for(msg in error_messages){
-        message(msg)
-    }
-    error_messages <<- c()
+  }
+  if(refresh_on_exit){
+    refresh_location_hierarchy()
+  } else {
+    warning("Not refreshing location_hierarchy.  I hope you know what you're doing")
   }
 }
 
