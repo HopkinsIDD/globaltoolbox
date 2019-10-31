@@ -7,11 +7,11 @@ options(warn=1,error=recover)
 library(sf)
 library(globaltoolbox)
 
-reset_database("~/KEN.sqlite")
-create_database("~/KEN.sqlite")
+# reset_database("globaltoolbox")
+# create_database("globaltoolbox")
 
 ## Load alt_country_names
-load_country_aliases('~/KEN.sqlite')
+# load_country_aliases('globaltoolbox')
 
 dirname <- "~/KEN_shp"
 all_files <- list.files(dirname)
@@ -38,27 +38,28 @@ for(file in all_files){
     alias_column_names = alias_column_names,
     source_name = "GAUL",
     geometry = TRUE,
-    dbname = "~/KEN.sqlite"
+    refresh_on_exit = FALSE,
+    dbname = "globaltoolbox"
   )
   print(paste("File: ",filename,"finished"))
 }
 
-shp <- st_read('~/gadm_ken.shp')
+shp <- sf::st_read('~/gadm_ken.shp')
 alias_column_names <- lapply(0:5,function(x){
   x = paste(c("GID","HASC","VARNAME","NLAME","VARNAME"),x,sep="_")
   return(x[x %in% names(shp)])
 })
 load_hierarchical_sf(
   filename = '~/gadm_ken.shp',
-  time_left = '1800-01-01',
-  time_right = '2019-12-31',
+  time_left = as.character("NA"),
+  time_right = as.character("NA"),
   hierarchy_column_names = paste("NAME",0:5,sep="_"),
   alias_column_names = alias_column_names,
   source_name = "GADM",
   geometry = TRUE,
   geometry_union = TRUE,
-  dbname = "~/KEN.sqlite"
+  refresh_on_exit = TRUE,
+  dbname = "globaltoolbox"
 )
 
-## Manually merge some location names together:
-
+merge_all_geometric_duplicates("globaltoolbox")
