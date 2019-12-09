@@ -44,6 +44,7 @@ Collate:
     'get_region.R'
     'get_who_disease_incidence.R'
     'load_gadm.R'
+    'sqlite-equivalents.R'
     'standardize_name.R'
     'telescope.R'
     'user_database_interface.R'
