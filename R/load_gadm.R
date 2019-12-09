@@ -176,7 +176,7 @@ standardize_gadm_rhs_time <- function(x){
 #' @param dbname Name of the database to load into. Defaults to a standard location.
 #' @export
 load_hierarchical_sf <- function(
-  filename,
+  shp_files,
   time_left,
   time_right,
   hierarchy_column_names,
@@ -190,7 +190,7 @@ load_hierarchical_sf <- function(
   dbname = default_database_filename()
 ){
   error_messages <- c("")
-  shp_files <- sf::st_read(filename, stringsAsFactors = FALSE)
+  # shp_files <- sf::st_read(filename, stringsAsFactors = FALSE)
   n_levels <- min(max_depth, length(hierarchy_column_names), na.rm = TRUE)
   if(!is.na(log_file)){
     message(paste("Logging to file",log_file))
@@ -218,7 +218,7 @@ load_hierarchical_sf <- function(
           source_name = source_name,
           dbname = dbname
         )
-        
+
         for(column in alias_column_names[[level]]){
           database_add_location_alias(
             geometry_id,

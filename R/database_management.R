@@ -136,37 +136,74 @@ create_database <- function(dbname = default_database_filename(),...){
   DBI::dbClearResult(
     DBI::dbSendQuery(
       con,
-      # "CREATE VIEW location_hierarchy AS 
-      "CREATE MATERIALIZED VIEW location_hierarchy AS 
+      # "CREATE VIEW location_hierarchy AS
+      "CREATE VIEW pre_location_hierarchy AS
       (SELECT
         table_1.id as ancestor,
-        table_3.id as descendant,
+        table_2.id as descendant,
         table_1.name as ancestor_name,
-        table_3.name as descendant_name,
-        count(table_2.name) as depth,
-        greatest(table_1.time_left ,MAX(table_2.time_left ), table_3.time_left ) as time_left, 
-        least   (table_1.time_right,MIN(table_2.time_right),table_3.time_right) as time_right
+        table_2.name as descendant_name,
+        table_1.inner_geometry as ancestor_geometry,
+        table_2.inner_geometry as descendant_geometry,
+        greatest(table_1.time_left , table_2.time_left ) as time_left,
+        least   (table_1.time_right, table_2.time_right) as time_right
       FROM
         location_geometries as table_1
       LEFT JOIN
         location_geometries as table_2
       ON
-        table_1.id <> table_2.id OR table_1.id = table_2.id
-      LEFT JOIN
-        location_geometries as table_3
-      ON
-        table_2.id <> table_3.id OR table_2.id = table_3.id
+        table_1.id <> table_2.id AND
+        table_1.time_left  <= table_2.time_right AND
+        table_1.time_right >= table_1.time_left
       WHERE
         ST_CONTAINS(table_1.outer_geometry,table_2.inner_geometry) AND
-        ST_CONTAINS(table_2.outer_geometry,table_3.inner_geometry)
-      GROUP BY
-        table_1.id,
-        table_3.id
+        greatest(table_1.time_left , table_2.time_left ) <= least   (table_1.time_right, table_2.time_right)
       );
       "
     )
   )
-  
+
+  DBI::dbClearResult(
+    DBI::dbSendQuery(
+      con,
+      "CREATE MATERIALIZED VIEW location_hierarchy AS
+       (SELECT
+        links.ancestor,
+        links.descendant,
+        links.time_left,
+        links.time_right,
+        COUNT(*) as depth
+      FROM
+        pre_location_hierarchy as links
+      LEFT JOIN
+        pre_location_hierarchy as lhs
+      ON
+        links.ancestor = lhs.ancestor AND
+        links.time_left  <= lhs.time_right AND
+        links.time_right >= lhs.time_left
+      LEFT JOIN
+        pre_location_hierarchy as rhs
+      ON
+        lhs.descendant = rhs.ancestor AND
+        links.descendant = rhs.descendant AND
+        links.time_left  <= rhs.time_right AND
+        links.time_right >= rhs.time_left AND
+        lhs.time_left  <= rhs.time_right AND
+        lhs.time_right >= rhs.time_left
+      WHERE
+        (
+          ST_AREA(ST_DIFFERENCE(links.descendant_geometry,links.ancestor_geometry)) /
+          ST_AREA(links.descendant_geometry)
+        ) < .1
+      GROUP BY
+        links.ancestor,
+        links.descendant,
+        links.time_left,
+        links.time_right
+      );"
+    )
+  )
+
   DBI::dbClearResult(
     DBI::dbSendQuery(
       con,
@@ -194,31 +231,22 @@ create_database <- function(dbname = default_database_filename(),...){
         (SELECT
           lhs.ancestor as lhs,
           lhs.descendant as rhs,
-          lhs_geo.inner_geometry as lhs_geometry,
-          rhs_geo.inner_geometry as rhs_geometry
+          lhs.ancestor_geometry as lhs_geometry,
+          lhs.descendant_geometry as rhs_geometry
         FROM
-          location_hierarchy as lhs
+          pre_location_hierarchy as lhs
         INNER JOIN
-          location_hierarchy as rhs
+          pre_location_hierarchy as rhs
         ON
           lhs.ancestor = rhs.descendant AND
           lhs.descendant = rhs.ancestor
-        INNER JOIN
-          location_geometries as lhs_geo
-        ON
-          lhs.ancestor = lhs_geo.id
-        INNER JOIN
-          location_geometries as rhs_geo
-        ON
-          rhs.ancestor = rhs_geo.id
         WHERE
-          lhs.ancestor != lhs.descendant AND
           (
             (
-              st_area(st_difference(lhs_geo.inner_geometry,rhs_geo.inner_geometry)) + 
-              st_area(st_difference(rhs_geo.inner_geometry,lhs_geo.inner_geometry))
+              st_area(st_difference(lhs.ancestor_geometry,lhs.descendant_geometry)) +
+              st_area(st_difference(lhs.descendant_geometry,lhs.ancestor_geometry))
             ) /
-              st_area(st_union(lhs_geo.inner_geometry,rhs_geo.inner_geometry))
+              st_area(st_union(lhs.ancestor_geometry,lhs.descendant_geometry))
           ) < .01
       );"
     )
@@ -391,7 +419,7 @@ database_add_location_geometry <- function(
   query_head <- "INSERT INTO location_geometries
       (name, readable_name, time_left, time_right, inner_geometry,outer_geometry,source)
     VALUES"
-  query_body <- "({name},{readable_name},{time_left},{time_right},{sf::st_as_text(geometry)},ST_BUFFER({sf::st_as_text(geometry)},.001),{source_name})"
+  query_body <- "({name},{readable_name},{time_left},{time_right},{sf::st_as_text(geometry)},ST_BUFFER({sf::st_as_text(geometry)},.01),{source_name})"
   query_tail <- "
     RETURNING
       id"
@@ -469,27 +497,37 @@ database_merge_location_geometries <- function(
   if(length(to) != 1){
     stop("Only merge into a single location at a time")
   }
-  query <- "SELECT alias from location_aliases where geometry_id = {from}"
+  query_1 <- "SELECT alias from location_aliases where geometry_id = {from}"
+  query_2 <- "SELECT min(time_left),max(time_right) from location_geometries where id in ({from},{to})"
+  query_3 <- "UPDATE location_geometries SET time_left = {time_left},time_right = {time_right} WHERE id = {to}"
   drop_query_1 <- "DELETE from location_aliases where geometry_id = {from}"
   drop_query_2 <- "DELETE from location_geometries where id = {from}"
 
   tryCatch({
-    rc <- DBI::dbGetQuery(con, glue::glue_sql(.con = con, query))$alias
+    rc <- DBI::dbGetQuery(con, glue::glue_sql(.con = con, query_1))$alias
+    times <- DBI::dbGetQuery(con, glue::glue_sql(.con = con, query_2))
+    time_left <- times$min
+    time_right <- times$max
+
   },
   error = function(e){
     DBI::dbDisconnect(con)
+    stop(e$message)
   })
   database_add_location_alias(geometry_id = rep(to,times=length(rc)), alias=rc,dbname=dbname,...)
   tryCatch({
+    DBI::dbClearResult(DBI::dbSendQuery(con,glue::glue_sql(.con = con, query_3)))
     DBI::dbClearResult(DBI::dbSendQuery(con,glue::glue_sql(.con = con, drop_query_1)))
     DBI::dbClearResult(DBI::dbSendQuery(con,glue::glue_sql(.con = con, drop_query_2)))
   },
   error = function(e){
     DBI::dbDisconnect(con)
+    stop(e$message)
   })
   RSQLite::dbDisconnect(con)
   return()
 }
+
 
 
 enable_location_hierarchy_update_trigger <- function(dbname = default_database_filename(),...){
@@ -509,6 +547,8 @@ enable_location_hierarchy_update_trigger <- function(dbname = default_database_f
   })
 }
 
+
+
 disable_location_hierarchy_update_trigger <- function(dbname = default_database_filename(),...){
   con <- DBI::dbConnect(drv = RPostgres::Postgres(), dbname = dbname,...)
   tryCatch({
@@ -524,21 +564,25 @@ disable_location_hierarchy_update_trigger <- function(dbname = default_database_
   })
 }
 
+
+
 refresh_location_hierarchy <- function(dbname = default_database_filename(),...){
   message("Refreshing the location hierarchy.  This may take some time.")
   con <- DBI::dbConnect(drv = RPostgres::Postgres(), dbname = dbname,...)
   tryCatch({
-    DBI::dbClearResult(
-      DBI::dbSendQuery(
-        con,
-        "REFRESH MATERIALIZED VIEW location_hierarchy"
-      )
-    )
+###     DBI::dbClearResult(
+###       DBI::dbSendQuery(
+###         con,
+###         "REFRESH MATERIALIZED VIEW location_hierarchy"
+###       )
+###     )
   }, error = function(e){
     DBI::dbDisconnect(con)
     stop(e$message)
   })
 }
+
+
 
 merge_all_geometric_duplicates <- function(limit = Inf,dbname = default_database_filename(),...){
   con <- DBI::dbConnect(drv = RPostgres::Postgres(), dbname = dbname,...)
@@ -573,4 +617,3 @@ merge_all_geometric_duplicates <- function(limit = Inf,dbname = default_database
     to_keys[length(to_keys) + 1] <- to_key
   }
 }
-
