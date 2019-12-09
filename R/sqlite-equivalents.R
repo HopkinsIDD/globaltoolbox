@@ -64,10 +64,8 @@ create_sqlite_database <- function(dbname = default_database_filename(),...){
         con,
         "CREATE TABLE sqlite.location_hierarchy as (
           SELECT
-            links.ancestor,
-            links.descendant,
-            links.time_left,
-            links.time_right,
+            links.ancestor as parent_id,
+            links.descendant as descendant_id,
             count(*) as depth
           FROM ((location_hierarchy links
             LEFT JOIN location_hierarchy lhs ON
