@@ -9,7 +9,7 @@ Depends:
     R (>= 3.4)
 Imports: 
     DBI,
-    RSQLite,
+    RPostgres,
     countrycode,
     dplyr,
     geojsonsf,
