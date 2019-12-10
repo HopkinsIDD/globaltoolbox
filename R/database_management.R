@@ -166,41 +166,20 @@ create_database <- function(dbname = default_database_filename(),...){
   DBI::dbClearResult(
     DBI::dbSendQuery(
       con,
-      "CREATE MATERIALIZED VIEW location_hierarchy AS
-       (SELECT
-        links.ancestor,
-        links.descendant,
-        links.time_left,
-        links.time_right,
-        COUNT(*) as depth
-      FROM
-        pre_location_hierarchy as links
-      LEFT JOIN
-        pre_location_hierarchy as lhs
-      ON
-        links.ancestor = lhs.ancestor AND
-        links.time_left  <= lhs.time_right AND
-        links.time_right >= lhs.time_left
-      LEFT JOIN
-        pre_location_hierarchy as rhs
-      ON
-        lhs.descendant = rhs.ancestor AND
-        links.descendant = rhs.descendant AND
-        links.time_left  <= rhs.time_right AND
-        links.time_right >= rhs.time_left AND
-        lhs.time_left  <= rhs.time_right AND
-        lhs.time_right >= rhs.time_left
-      WHERE
+      "CREATE MATERIALIZED VIEW location_hierarchy as (
+        SELECT
+          ancestor,
+          descendant,
+          time_left,
+          time_right
+        FROM
+          pre_location_hierarchy
+        WHERE
         (
-          ST_AREA(ST_DIFFERENCE(links.descendant_geometry,links.ancestor_geometry)) /
-          ST_AREA(links.descendant_geometry)
-        ) < .1
-      GROUP BY
-        links.ancestor,
-        links.descendant,
-        links.time_left,
-        links.time_right
-      );"
+          st_area(st_difference(descendant_geometry, ancestor_geometry)) /
+          st_area(descendant_geometry)
+        ) < (0.1)::double precision
+      )"
     )
   )
 
@@ -586,13 +565,12 @@ refresh_location_hierarchy <- function(dbname = default_database_filename(),...)
 
 merge_all_geometric_duplicates <- function(limit = Inf,dbname = default_database_filename(),...){
   con <- DBI::dbConnect(drv = RPostgres::Postgres(), dbname = dbname,...)
-  # pre_query <- "REFRESH MATERIALIZED VIEW geometry_duplicate_locations"
+  post_query <- "REFRESH MATERIALIZED VIEW location_hierarchy;"
   if(is.finite(limit)){
     query <- "SELECT lhs,rhs FROM geometry_duplicate_locations LIMIT {limit}"
   } else {
     query <- "SELECT lhs,rhs FROM geometry_duplicate_locations"
   }
-  # DBI::dbClearResult(DBI::dbSendQuery(con,pre_query))
   rc <- DBI::dbGetQuery(con, glue::glue_sql(.con = con, query))
   from_keys= c()
   to_keys = c()
@@ -616,4 +594,39 @@ merge_all_geometric_duplicates <- function(limit = Inf,dbname = default_database
     from_keys[length(from_keys) + 1] <- from_key
     to_keys[length(to_keys) + 1] <- to_key
   }
+  DBI::dbClearResult(DBI::dbSendQuery(con,post_query))
+}
+
+
+
+fix_problematic_geometries <- function(dbname = default_database_filename()){
+  con <- DBI::dbConnect(drv = RPostgres::Postgres(), dbname = dbname,...)
+
+
+
+  tryCatch({
+    DBI::dbClearResult(
+      DBI::dbSendQuery(
+        "UPDATE location_geometries
+         SET
+           inner_geometry = ST_MAKEVALID(inner_geometry),
+           outer_geometry = ST_BUFFER(inner_geometry,0.1)
+         WHERE
+           NOT ST_ISVALID(inner_geometry);"
+      )
+    )
+    DBI::dbClearResult(
+      DBI::dbSendQuery(
+        "UPDATE location_geometries
+         SET
+           inner_geometry = ST_COLLECTIONEXTRACT(inner_geometry,3)
+           outer_geometry = ST_BUFFER(inner_geometry,0.1)
+         WHERE
+           ST_GEOMETRYTYPE(inner_geometry) = 'ST_GeometryCollection';"
+      )
+    )
+  }, error = function(e){
+    DBI::dbDisconnect(con)
+    stop(e$message)
+  })
 }

@@ -22,7 +22,7 @@ create_partial_database <- function(
   for(file in all_files){
     filename <- paste0(dirname,"/",file,"/",file,".shp")
     backup_folder <- paste0(dirname,"/",file,".shp")
-    if(!exists(filename)){next;}
+    if(!file.exists(filename)){next;}
     print(filename)
     year <- as.numeric(gsub('.*2015_([1234567890]*).*','\\1',filename))
     print(paste("File: ",filename))
