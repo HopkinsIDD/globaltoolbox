@@ -10,8 +10,9 @@ library(globaltoolbox)
 library(tidyverse)
 
 
-dbname <- "../gaul_gadm.sqlite"
-
+#dbname <- "../gaul_gadm.sqlite"
+dbname <- "../eth.sqlite"        # Ethiopia test database
+#dbname <- "../KEN.sqlite"        # Kenya test database
 
 # Load DB as data.frame ---------------------------------------------------
 
