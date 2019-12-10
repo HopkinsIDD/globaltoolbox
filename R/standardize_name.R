@@ -271,8 +271,7 @@ match_names <- function(name_a, names_b_data,
     }
     
     if(!all(is.na(dists))){
-      dists$score_sums_normalized <-
-        1 - (dists$score_sums / max(dists$score_sums))
+      dists$score_sums_normalized <- 1 - (dists$score_sums / max(dists$score_sums))
     } else {
       dists$score_sums_normalized <- dists$score_sums
     }

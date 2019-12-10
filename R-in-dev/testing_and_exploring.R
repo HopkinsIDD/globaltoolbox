@@ -15,13 +15,9 @@ dbname <- "../gaul_gadm.sqlite"
 
 # Load DB as data.frame ---------------------------------------------------
 
-db_df <- get_location_metadata(dbname=dbname)
-write_csv(db_df, "../gaul_gadm_sqlite.csv")
-
-
+# db_df <- get_location_metadata(dbname=dbname)
+# write_csv(db_df, "../gaul_gadm_sqlite.csv")
 nrow(db_df)
-
-
 
 
 
@@ -110,5 +106,17 @@ db_samename <- db_samename[db_samename$readable_name %in% dup_readable_name, ]
 
 View(db_df %>% filter(readable_name=="shrkia"))
 View(db_df %>% filter(readable_name=="ashsharqiyah"))
+
+
+
+
+
+
+
+# Fix standardize_name.R --------------------------------------------------
+
+tmp <- standardize_name(location = "homabaytown", scope="", dbname=dbname,
+  strict_scope=TRUE, standardize_location=FALSE, standardize_db=FALSE)
+
 
 
