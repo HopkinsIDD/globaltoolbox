@@ -19,7 +19,7 @@ dbname <- "../eth.sqlite"        # Ethiopia test database
 # db_df <- get_location_metadata(dbname=dbname)
 # write_csv(db_df, "../gaul_gadm_sqlite.csv")
 nrow(db_df)
-
+ 
 
 
 
