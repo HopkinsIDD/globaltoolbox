@@ -34,7 +34,7 @@ Suggests:
 License: GPL (>=2)
 Encoding: UTF-8
 LazyData: true
-RoxygenNote: 6.1.99.9001
+RoxygenNote: 7.0.2
 Collate: 
     'consistency_checks.R'
     'string_manipulation.R'
@@ -44,6 +44,7 @@ Collate:
     'get_region.R'
     'get_who_disease_incidence.R'
     'load_gadm.R'
+    'sqlite-equivalents.R'
     'standardize_name.R'
     'telescope.R'
     'user_database_interface.R'
