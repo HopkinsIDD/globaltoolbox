@@ -140,9 +140,9 @@ get_all_aliases <- function(
       locations.id = location_aliases.location_id
     WHERE
       1=1"
-   if(!is.null(location)){
-      query <- paste(query, "AND name is {location}")
-   }
+  if(!is.null(location)){
+    query <- paste(query, "AND name is {location}")
+  }
   if(!is.null(source)){
     parent_id <- NA
     if(is.numeric(source)){
