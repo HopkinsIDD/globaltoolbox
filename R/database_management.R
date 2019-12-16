@@ -315,6 +315,15 @@ create_database <- function(dbname = default_database_filename(),...){
     database_add_location_alias(loc_id, "", dbname = dbname,...)
   },
   silent = T))
+  database_add_location_geometry(
+    name = '',
+    readable_name = 'World',
+    time_left = '0001-01-01',
+    time_right = '3000-01-01',
+    source_name = 'globaltoolbox',
+    geometry = sf::st_sfc(sf::st_polygon(list(matrix(c(-180,-90,-180,90,180,90,180,-90,-180,-90),ncol=2,byrow=T)))),
+    dbname = dbname
+  )
   return()
 }
 
@@ -599,14 +608,13 @@ merge_all_geometric_duplicates <- function(limit = Inf,dbname = default_database
 
 
 
-fix_problematic_geometries <- function(dbname = default_database_filename()){
+fix_problematic_geometries <- function(dbname = default_database_filename(),...){
   con <- DBI::dbConnect(drv = RPostgres::Postgres(), dbname = dbname,...)
-
-
 
   tryCatch({
     DBI::dbClearResult(
       DBI::dbSendQuery(
+        con,
         "UPDATE location_geometries
          SET
            inner_geometry = ST_MAKEVALID(inner_geometry),
@@ -617,9 +625,10 @@ fix_problematic_geometries <- function(dbname = default_database_filename()){
     )
     DBI::dbClearResult(
       DBI::dbSendQuery(
+        con,
         "UPDATE location_geometries
          SET
-           inner_geometry = ST_COLLECTIONEXTRACT(inner_geometry,3)
+           inner_geometry = ST_COLLECTIONEXTRACT(inner_geometry,3),
            outer_geometry = ST_BUFFER(inner_geometry,0.1)
          WHERE
            ST_GEOMETRYTYPE(inner_geometry) = 'ST_GeometryCollection';"
