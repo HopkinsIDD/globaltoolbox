@@ -4,7 +4,6 @@
 #' This is used by standardize_location_strings.
 #' @param string string location name to standardize.
 #' @return standardized string of the location names.
-#' @export
 standardize_string <- function(string){
   
   ranked_encodings <- c('UTF-8', 'LATIN1') # Encodings to try
@@ -39,7 +38,6 @@ standardize_string <- function(string){
 #' @description Standardize each level of a string name. This is used by others functions that standardize and match names.
 #' @param location_name location name to match
 #' @return standardized string of the location name.
-#' @export
 standardize_location_strings <- function(location_name){
   if(length(location_name) == 0){
     return(location_name)
