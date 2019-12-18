@@ -10,7 +10,7 @@
 #' @param metadata Additional data that may be useful to identify the location name
 #' @param dbname database name to pull location information from. Default pulls from the database included in the package.
 #' @param db_scoped inputted scoped database. This speeds it up when doing multiple matches.
-#' @param strict_scope Logical, whether scope is strict.
+#' @param strict_scope Logical, whether scope is strict. (what does "strict" even mean. we need to make this clearer.)
 #' @param depth Depth in the tree to search, with country-level as depth=1.
 #' @param standardize_location Logical, whether location strings should be standardized. This is already done in `telescoping_standardize()`. Default is FALSE.
 #' @param return_match_scores logical, whether to return the matching score. Score reported on 0-1 scale, with 1 being a perfect match.
@@ -61,6 +61,7 @@ standardize_name <- function(
   )
 
   if (standardize_db){
+    db_scoped$name_unstandard <- tolower(db_scoped$name)
     db_scoped$name <- standardize_location_strings(db_scoped$name)
     db_scoped$readable_name <- standardize_location_strings(db_scoped$readable_name)
     db_scoped$alias <- standardize_location_strings(db_scoped$alias)
@@ -224,14 +225,6 @@ match_names <- function(name_a, names_b_data,
   # If no exact match, do the string matching algorithms
   } else {
 
-    if ( (nchar(name_a) <= 5) & !return_match_scores){
-      return(setNames(as.integer(NA),name_a))
-    } else if ( (nchar(name_a) <= 5) & return_match_scores){
-      return(list(best = setNames(as.integer(NA, name_a)),
-        match_scores = rep(as.numeric(NA), times = min(20, nrow(dists)))
-      ))
-    }
-    
     ## string matching methods
     ## Consider passing in methods as an argument?
     ##   lv      : Levenshtein distance - Minimal number of insertions, deletions and replacements needed for transforming string a into string b.
@@ -243,7 +236,7 @@ match_names <- function(name_a, names_b_data,
     ##   jaccard : Jaccard distance - 1 minues the quotient of shared N-grams and all observed N-grams.
     ##   jw      : Jaro-Winkler distance - This distance is a formula of 5 parameters determined by the two compared strings (A,B,m,t,l) and p chosen from [0, 0.25].
     ##   soundex :
-    methods <- c("osa", "qgram", "jw", "cosine","jaccard", "soundex")
+    methods <- c("osa", "jw", "soundex")
     #methods <- c('osa','lv','dl','lcs','qgram','cosine','jaccard','jw','soundex')
     dists <- as.data.frame(matrix(
       NA,
@@ -271,8 +264,7 @@ match_names <- function(name_a, names_b_data,
     }
     
     if(!all(is.na(dists))){
-      dists$score_sums_normalized <-
-        1 - (dists$score_sums / max(dists$score_sums))
+      dists$score_sums_normalized <- 1 - (dists$score_sums / max(dists$score_sums))
     } else {
       dists$score_sums_normalized <- dists$score_sums
     }
@@ -292,7 +284,16 @@ match_names <- function(name_a, names_b_data,
       best_ <- which(dists$osa <= 3 & dists$jw <= 0.31 & dists$soundex == 0)
     }
 
-
+    # ## Modified return if name has 5 or fewer characters 
+    # ## --> can generate spurious matches [NEED TO FIX THIS]
+    # if ( (nchar(name_a) <= 5) & !return_match_scores){
+    #   return(setNames(as.integer(NA),name_a))
+    # } else if ( (nchar(name_a) <= 5) & return_match_scores){
+    #   return(list(best = setNames(as.integer(NA, name_a)),
+    #               match_scores = rep(as.numeric(NA), times = min(20, nrow(dists)))
+    #   ))
+    # }
+    
     ## If no good match was found, return either nothing, or the score matrix (up to 20 long)
     if (length(best_) == 0 & !return_match_scores){
       return(setNames(as.integer(NA), name_a))
