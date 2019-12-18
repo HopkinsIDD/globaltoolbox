@@ -163,7 +163,7 @@ get_all_aliases <- function(
   }
   query <- paste(query, "GROUP BY name,alias,location_id")
   rc <- DBI::dbGetQuery(con, glue::glue_sql(.con = con, query))
-  
+
   RSQLite::dbDisconnect(con)
   return(rc)
 }
@@ -246,5 +246,42 @@ get_location_geometry <- function(
     rc$geometry <- geojsonsf::geojson_sf(rc$geometry)$geometry
   }
   rc <- sf::st_as_sf(rc)
+  return(rc)
+}
+
+
+#' @name get_parents
+#' @title get_parents
+#' @description Pull the names of all locations which are parents of the given location in the tree
+#' @param location The standardized name of the location to get the parents of
+#' @param time_left Only pull geometries who are valid at a time after this time
+#' @param time_right Only pull geometries who are valid at a time before this time
+#' @param dbname The name of the database to connect to
+get_parents <- function(location,dbname = default_database_filename()){
+  con <- DBI::dbConnect(drv = RSQLite::SQLite(), dbname)
+  query <- "SELECT
+    locations.id,
+    locations.name,
+    locations.readable_name,
+    parents.id as parent_id,
+    parents.name as parent_name,
+    parents.readable_name as readable_parent_name,
+    depth
+  FROM
+    locations
+  LEFT JOIN
+    location_hierarchy
+  ON
+    locations.id = location_hierarchy.descendant_id
+  LEFT JOIN
+    locations as parents
+  ON
+    parents.id = location_hierarchy.parent_id
+  WHERE
+    locations.name is {location}"
+  query <- paste(query, "GROUP BY locations.name,locations.id,parents.id")
+  rc <- DBI::dbGetQuery(con, glue::glue_sql(.con = con, query))
+
+  RSQLite::dbDisconnect(con)
   return(rc)
 }
