@@ -257,6 +257,7 @@ get_location_geometry <- function(
 #' @param time_left Only pull geometries who are valid at a time after this time
 #' @param time_right Only pull geometries who are valid at a time before this time
 #' @param dbname The name of the database to connect to
+#" @export
 get_parents <- function(location,dbname = default_database_filename()){
   con <- DBI::dbConnect(drv = RSQLite::SQLite(), dbname)
   query <- "SELECT
