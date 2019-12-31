@@ -243,7 +243,8 @@ get_location_geometry <- function(
   rc$depth_from_source <- rc$depth
   rc$depth <- NULL
   if(nrow(rc) > 0){
-    rc$geometry <- geojsonsf::geojson_sf(rc$geometry)$geometry
+    # rc$geometry <- geojsonsf::geojson_sf(rc$geometry)$geometry
+    rc$geometry <- sf::st_as_sfc(rc$geometry)
   }
   rc <- sf::st_as_sf(rc)
   return(rc)
