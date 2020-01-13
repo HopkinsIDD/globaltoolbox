@@ -213,6 +213,7 @@ match_names <- function(name_a, names_b_data,
     ## if  more than 1 best match, return the number of matches and the description data
     } else {
       message(paste(name_a,"has",sum(exact_match),"exact matches.  Ignoring them."))
+      print(names_b_data[exact_match,])
       if (return_match_scores){
         return(list(best = setNames(as.integer(NA), name_a),
                     match_scores = names_b_data[exact_match,]))
@@ -330,6 +331,8 @@ match_names <- function(name_a, names_b_data,
       ## if still more than 1 best match, return the number of matches or the distance matrix
       if (nrow(dists_best) > 1){
         message(paste(name_a,"has",nrow(dists_best),"best matches.  Ignoring them."))
+        ## This seems suspicious
+        print(names_b_data[exact_match,])
         if (return_match_scores){
           return(list(best = setNames(as.integer(NA), name_a),
                       match_scores = names_b_data[exact_match,]))
