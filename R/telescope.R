@@ -239,7 +239,8 @@ telescoping_standardize <- function(
           depth = max_jump_depth,
           dbname = dbname,
         )
-        if(collapse & any(is.na(standard_names))){
+        parent_depth <-  nrow(get_parents(scope,dbname=dbname))
+        if(collapse & any(is.na(standard_names)) & (parent_depth > 1)){
           ## Check for mistakes
           standard_names[is.na(standard_names)] <- standardize_name(
             location = gsub(".*:","",nonstandard_names[is.na(standard_names)]),
@@ -249,7 +250,7 @@ telescoping_standardize <- function(
             strict_scope = FALSE
           )
         }
-        while(reconsider_source & any(is.na(standard_names)) & (scope != "")){
+        while(reconsider_source & any(is.na(standard_names)) & (parent_depth > 1)){
           scope = gsub(":?:?[^:]*$","",scope)
           standard_names[is.na(standard_names)] <- standardize_name(
             gsub('.*:', '', nonstandard_names[is.na(standard_names)]),
