@@ -72,4 +72,6 @@ create_partial_database <- function(
     geometry = TRUE,
     geometry_union = TRUE
   )
+  rm(shp)
+  gc()
 }
