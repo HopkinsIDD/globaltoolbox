@@ -46,6 +46,7 @@ create_partial_database <- function(
       geometry = TRUE,
       max_depth = 3
     )
+    print(paste("GAUL Shapefile for",country,":",filename,"has",nrow(shp),"lines"))
     print(paste("File: ",filename,"finished"))
     gc()
   }
@@ -61,6 +62,7 @@ create_partial_database <- function(
     return()
   }
   shp <- shp[shp_indices,]
+  print(paste("GADM Shapefile for",country,"has",nrow(shp),"lines"))
   load_hierarchical_sf(
     shp_files = shp,
     time_left = '1800-01-01',
