@@ -1,10 +1,10 @@
 #' @include string_manipulation.R
 
+#' @export
 #' @name default_database_filename
 #' @title default_database_filename
 #' @description Return the filename of the default database
 #' @return A filename as a character
-#' @export
 default_database_filename <- function(){
   return("globaltoolbox")
   system.file("extdata", "globaltoolbox.sqlite", package = "globaltoolbox")
@@ -418,7 +418,20 @@ database_add_location_geometry <- function(
   },
   error = function(e){
     RSQLite::dbDisconnect(con)
-    stop(e$message)
+    if(grepl("TopologyException",e$message)){
+      database_add_location_geometry(
+        name=name,
+        readable_name=readable_name,
+        source_name=source_name,
+        time_left=time_left,
+        time_right=time_right,
+        geometry = lwgeom::st_make_valid(geometry),
+        dbname = dbname,
+        ...
+      )
+    } else {
+      stop(e$message)
+    }
   })
   RSQLite::dbDisconnect(con)
   database_add_location_alias(
@@ -557,13 +570,15 @@ disable_location_hierarchy_update_trigger <- function(dbname = default_database_
 refresh_location_hierarchy <- function(dbname = default_database_filename(),...){
   message("Refreshing the location hierarchy.  This may take some time.")
   con <- DBI::dbConnect(drv = RPostgres::Postgres(), dbname = dbname,...)
+  fix_problematic_geometries(dbname=dbname)
+  merge_all_geometric_duplicates(dbname=dbname)
   tryCatch({
-###     DBI::dbClearResult(
-###       DBI::dbSendQuery(
-###         con,
-###         "REFRESH MATERIALIZED VIEW location_hierarchy"
-###       )
-###     )
+    DBI::dbClearResult(
+      DBI::dbSendQuery(
+        con,
+        "REFRESH MATERIALIZED VIEW location_hierarchy"
+      )
+    )
   }, error = function(e){
     DBI::dbDisconnect(con)
     stop(e$message)
