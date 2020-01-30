@@ -26,7 +26,7 @@ create_partial_database <- function(
     print(filename)
     year <- as.numeric(gsub('.*2015_([1234567890]*).*','\\1',filename))
     print(paste("File: ",filename))
-    shp <- st_read(filename)
+    shp <- st_read(filename,stringsAsFactors=FALSE)
     levels <- suppressWarnings(max(as.numeric(unique(gsub("_.*","",gsub("ADM","",names(shp))))),na.rm=TRUE))
     hierarchy_column_names <- paste0("ADM",0:levels,"_NAME")
     hierarchy_column_names <- hierarchy_column_names[hierarchy_column_names %in% names(shp)]
@@ -51,7 +51,7 @@ create_partial_database <- function(
     gc()
   }
 
-  shp <- st_read(gadm_shapefile)
+  shp <- st_read(gadm_shapefile,stringsAsFactors=FALSE)
   hierarchy_column_names = paste("NAME",0:5,sep="_")
   alias_column_names <- lapply(0:5,function(x){
     x = paste(c("GID","HASC","VARNAME","NLAME","VARNAME"),x,sep="_")
