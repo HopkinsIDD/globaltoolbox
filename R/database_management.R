@@ -589,6 +589,7 @@ refresh_location_hierarchy <- function(dbname = default_database_filename(),...)
 
 merge_all_geometric_duplicates <- function(limit = Inf,dbname = default_database_filename(),...){
   con <- DBI::dbConnect(drv = RPostgres::Postgres(), dbname = dbname,...)
+  fix_problematic_geometries(dbname=dbname,...)
   post_query <- "REFRESH MATERIALIZED VIEW location_hierarchy;"
   if(is.finite(limit)){
     query <- "SELECT lhs,rhs FROM geometry_duplicate_locations LIMIT {limit}"
