@@ -17,15 +17,31 @@ create_partial_database <- function(
   # load_country_aliases(filename)
 
   dirname <- gaul_directory
-  all_files <- list.files(dirname)
-  all_files <- all_files[!grepl(".zip",all_files)]
-  for(file in all_files){
-    filename <- paste0(dirname,"/",file,"/",file,".shp")
-    backup_folder <- paste0(dirname,"/",file,".shp")
-    if(!file.exists(filename)){next;}
+  all_files <- list.files(dirname,recursive=TRUE)
+  all_files <- all_files[grepl(".shp$",all_files)]
+  all_files <- paste0(dirname,'/',all_files)
+  for(filename in all_files){
     print(filename)
     year <- as.numeric(gsub('.*2015_([1234567890]*).*','\\1',filename))
+    if(year > 1900){
+      tl <- paste(year,"01","01",sep='-')
+      tr <- paste(year+1,"01","01",sep='-')
+    } else {
+      year <- as.numeric(gsub('^.*([1234567890][1234567890][1234567890][123467890]).*$','\\1',filename))
+      if (grepl('_bef_',filename)) {
+        tl = '1800-01-01'
+        tr <- paste(year+1,"01","01",sep='-')
+      } else if (grepl('_now.',filename)) {
+        tl <- paste(year,"01","01",sep='-')
+        tr = '2019-12-31'
+      }
+      if(is.na(year)){
+        tl = '1800-01-01'
+        tr = '2019-12-31'
+      }
+    }
     print(paste("File: ",filename))
+    print(paste(tl,"to",tr))
     shp <- st_read(filename,stringsAsFactors=FALSE)
     levels <- suppressWarnings(max(as.numeric(unique(gsub("_.*","",gsub("ADM","",names(shp))))),na.rm=TRUE))
     hierarchy_column_names <- paste0("ADM",0:levels,"_NAME")
@@ -38,8 +54,8 @@ create_partial_database <- function(
     }
     load_hierarchical_sf(
       shp_files = shp,
-      time_left = paste(year,"01","01",sep='-'),
-      time_right = paste(year+1,"01","01",sep='-'),
+      time_left = tl,
+      time_right = tr,
       hierarchy_column_names = hierarchy_column_names,
       alias_column_names = alias_column_names,
       source_name = "GAUL",
