@@ -231,20 +231,6 @@ create_database <- function(dbname = default_database_filename(),...){
     )
   )
 
-  DBI::dbClearResult(
-    DBI::dbSendQuery(
-      con,
-      "CREATE OR REPLACE FUNCTION tg_refresh_my_mv()
-      RETURNS trigger LANGUAGE plpgsql AS $$
-      BEGIN
-        REFRESH MATERIALIZED VIEW location_hierarchy;
-        RETURN NULL;
-      END;
-      $$;"
-    )
-  )
-
-  enable_location_hierarchy_update_trigger(dbname);
 
 ##   DBI::dbClearResult(
 ##     DBI::dbSendQuery(
@@ -407,7 +393,7 @@ database_add_location_geometry <- function(
   query_head <- "INSERT INTO location_geometries
       (name, readable_name, time_left, time_right, inner_geometry,outer_geometry,source)
     VALUES"
-  query_body <- "({name},{readable_name},{time_left},{time_right},{sf::st_as_text(geometry)},ST_BUFFER({sf::st_as_text(geometry)},.01),{source_name})"
+  query_body <- "({name},{readable_name},{time_left},{time_right},ST_MAKEVALID({sf::st_as_text(geometry)}),ST_MAKEVALID(ST_BUFFER({sf::st_as_text(geometry)},.01)),{source_name})"
   query_tail <- "
     RETURNING
       id"
@@ -531,25 +517,6 @@ database_merge_location_geometries <- function(
 
 
 
-enable_location_hierarchy_update_trigger <- function(dbname = default_database_filename(),...){
-  con <- DBI::dbConnect(drv = RPostgres::Postgres(), dbname = dbname,...)
-  tryCatch({
-    DBI::dbClearResult(
-      DBI::dbSendQuery(
-        con,
-        "CREATE TRIGGER tg_refresh_my_mv AFTER INSERT OR UPDATE OR DELETE
-        ON location_geometries
-        FOR EACH STATEMENT EXECUTE PROCEDURE tg_refresh_my_mv();"
-      )
-    )
-  }, error = function(e){
-    RSQLite::dbDisconnect(con)
-    stop(e$message)
-  })
-}
-
-
-
 disable_location_hierarchy_update_trigger <- function(dbname = default_database_filename(),...){
   con <- DBI::dbConnect(drv = RPostgres::Postgres(), dbname = dbname,...)
   tryCatch({
@@ -590,7 +557,6 @@ refresh_location_hierarchy <- function(dbname = default_database_filename(),...)
 merge_all_geometric_duplicates <- function(limit = Inf,dbname = default_database_filename(),...){
   con <- DBI::dbConnect(drv = RPostgres::Postgres(), dbname = dbname,...)
   fix_problematic_geometries(dbname=dbname,...)
-  post_query <- "REFRESH MATERIALIZED VIEW location_hierarchy;"
   if(is.finite(limit)){
     query <- "SELECT lhs,rhs FROM geometry_duplicate_locations LIMIT {limit}"
   } else {
@@ -619,7 +585,7 @@ merge_all_geometric_duplicates <- function(limit = Inf,dbname = default_database
     from_keys[length(from_keys) + 1] <- from_key
     to_keys[length(to_keys) + 1] <- to_key
   }
-  DBI::dbClearResult(DBI::dbSendQuery(con,post_query))
+  refresh_location_hierarchy(dbname=dbname,...)
 }
 
 

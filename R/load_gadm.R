@@ -99,7 +99,6 @@ load_country_aliases <- function(dbname = default_database_filename()){
   }
   cat('\n')
   }, error = function(e){
-    enable_location_hierarchy_update_trigger(dbname)
     stop(e$message)
   })
 }
