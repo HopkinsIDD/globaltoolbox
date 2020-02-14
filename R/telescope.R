@@ -257,6 +257,7 @@ telescoping_standardize <- function(
             scope = scope,
             depth = max_jump_depth,
             dbname = dbname,
+          parent_depth = parent_depth - 1;
          )
        }
      }
