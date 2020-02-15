@@ -8,6 +8,7 @@ create_partial_database <- function(
   gaul_directory = "~/GAUL_shp",
   gadm_shapefile = "~/gadm36.shp",
   country = "",
+  max_depth = 10,
   dbname = "globaltoolbox"
 ){
   # reset_database(dbname = dbname)
@@ -60,7 +61,8 @@ create_partial_database <- function(
       alias_column_names = alias_column_names,
       source_name = "GAUL",
       geometry = TRUE,
-      max_depth = 3
+      max_depth = max_depth,
+      refresh_on_exit = FALSE
     )
     print(paste("GAUL Shapefile for",country,":",filename,"has",nrow(shp),"lines"))
     print(paste("File: ",filename,"finished"))
@@ -86,7 +88,7 @@ create_partial_database <- function(
     hierarchy_column_names = paste("NAME",0:5,sep="_"),
     alias_column_names = alias_column_names,
     source_name = "GADM",
-    max_depth =  3,
+    max_depth =  max_depth,
     geometry = TRUE,
     geometry_union = TRUE
   )
